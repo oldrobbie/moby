@@ -1,0 +1,19 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "2xCnTEffTEgSTeujZu0ZE3f+msc=",
+			"path": "github.com/qnib/moby/houdini",
+			"revision": "544ec0994f3979314b0c3a892a4e352145d0cc0b",
+			"revisionTime": "2018-04-13T04:54:52Z"
+		},
+		{
+			"checksumSHA1": "BriNQxaKLjEETt6KEjoebr4cXT0=",
+			"path": "github.com/qnib/moby/pkg/houdini",
+			"revision": "544ec0994f3979314b0c3a892a4e352145d0cc0b",
+			"revisionTime": "2018-04-13T04:54:52Z"
+		}
+	],
+	"rootPath": "github.com/qnib/moby"
+}

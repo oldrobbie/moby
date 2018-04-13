@@ -27,6 +27,7 @@ import (
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/qnib/moby/pkg/houdini"
 )
 
 const configFileName = "config.json"
@@ -61,6 +62,7 @@ type ManagerConfig struct {
 	ExecRoot           string
 	CreateExecutor     ExecutorCreator
 	AuthzMiddleware    *authorization.Middleware
+	HoudiniMiddleware  *houdini.Middleware
 }
 
 // ExecutorCreator is used in the manager config to pass in an `Executor`
