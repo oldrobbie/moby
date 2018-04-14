@@ -3,16 +3,40 @@
 	"ignore": "",
 	"package": [
 		{
+			"checksumSHA1": "5Ft0nepGVOfKB3R3s+EsQtuT7VE=",
+			"path": "github.com/codegangsta/cli",
+			"revision": "44cb242eeb4d76cc813fdc69ba5c4b224677e799",
+			"revisionTime": "2017-11-04T02:35:40Z"
+		},
+		{
+			"checksumSHA1": "8bCg/2RmH1QF5+j78OtiFXUaJ/o=",
+			"path": "github.com/ghodss/yaml",
+			"revision": "0ca9ea5df5451ffdf184b4428c902747c2c11cd7",
+			"revisionTime": "2017-03-27T23:54:44Z"
+		},
+		{
 			"checksumSHA1": "2xCnTEffTEgSTeujZu0ZE3f+msc=",
 			"path": "github.com/qnib/moby/houdini",
 			"revision": "544ec0994f3979314b0c3a892a4e352145d0cc0b",
 			"revisionTime": "2018-04-13T04:54:52Z"
 		},
 		{
-			"checksumSHA1": "BriNQxaKLjEETt6KEjoebr4cXT0=",
+			"checksumSHA1": "hfqGVWZ7RYryiLa/ukvhL/wWLAY=",
 			"path": "github.com/qnib/moby/pkg/houdini",
-			"revision": "544ec0994f3979314b0c3a892a4e352145d0cc0b",
-			"revisionTime": "2018-04-13T04:54:52Z"
+			"revision": "65457225a650396c77b63f5f8906f62b4505ca7b",
+			"revisionTime": "2018-04-13T08:03:22Z"
+		},
+		{
+			"checksumSHA1": "sbxmQDSULBsu/48D+BHznW8YRmg=",
+			"path": "github.com/zpatrick/go-config",
+			"revision": "710646a45582fde23bf77bacbc2f38008dc7ffc2",
+			"revisionTime": "2016-11-18T20:29:31Z"
+		},
+		{
+			"checksumSHA1": "nr8p9hxusGCgahnWSczcIpuytfk=",
+			"path": "gopkg.in/yaml.v2",
+			"revision": "d670f9405373e636a5a2765eea47fac0c9bc91a4",
+			"revisionTime": "2018-01-09T11:43:31Z"
 		}
 	],
 	"rootPath": "github.com/qnib/moby"
