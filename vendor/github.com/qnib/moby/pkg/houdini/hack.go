@@ -20,7 +20,7 @@ func HoudiniChanges(params types.ContainerCreateConfig) (types.ContainerCreateCo
 	c := config.NewConfig([]config.Provider{iniFile})
 	user, _ := c.StringOr("default.user", "")
 	if user != "" {
-		fmt.Printf(">> Overwrite user '%s' with '%s'", params.Config.User, user)
+		fmt.Printf(">> Overwrite user '%s' with '%s'\n", params.Config.User, user)
 		params.Config.User = user
 	}
 	mnts, err := c.StringOr("default.mounts", "")
