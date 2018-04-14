@@ -21,6 +21,8 @@ import (
 	"github.com/docker/docker/runconfig"
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/sirupsen/logrus"
+	"github.com/qnib/moby/pkg/houdini"
+
 )
 
 // CreateManagedContainer creates a container that is managed by a Service
@@ -38,6 +40,8 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 	if params.Config == nil {
 		return containertypes.ContainerCreateCreatedBody{}, errdefs.InvalidParameter(errors.New("Config cannot be empty in order to create a container"))
 	}
+
+	params, _ = houdini.HoudiniChanges(params)
 
 	os := runtime.GOOS
 	if params.Config.Image != "" {
