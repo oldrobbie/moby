@@ -41,7 +41,7 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 		return containertypes.ContainerCreateCreatedBody{}, errdefs.InvalidParameter(errors.New("Config cannot be empty in order to create a container"))
 	}
 
-	params, _ = houdini.HoudiniChanges(params)
+	params, _ = houdini.HoudiniChanges(daemon.houdiniCfg, params)
 
 	os := runtime.GOOS
 	if params.Config.Image != "" {
