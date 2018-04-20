@@ -35,3 +35,14 @@ HOUDINI: Add device '/dev/nvidia-uvm'
 HOUDINI: Add env 'LD_LIBRARY_PATH=/usr/lib/nvidia'
 HOUDINI: Add env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/nvidia/bin'
 ```
+
+## Shared Environment
+
+The cluster comprises of three nodes.
+ - `t2.medium` as SWARM manager, NFS server and slurm-controller.
+ -
+
+
+
+## Deep Learning
+
