@@ -21,16 +21,22 @@
 			"revisionTime": "2018-04-13T04:54:52Z"
 		},
 		{
-			"checksumSHA1": "9AP4WQU2kV5NFaaQMFtjKo/yURw=",
+			"checksumSHA1": "dk+UObuswDUJEzvA/k1XU5mXeKs=",
 			"path": "github.com/qnib/moby/pkg/houdini",
-			"revision": "2d4bd8da6097bdbcfc36ed9ae23d9ce3b45aaee1",
-			"revisionTime": "2018-04-14T16:36:13Z"
+			"revision": "92ca3646421e748f2784d3a23ef3d7551782c580",
+			"revisionTime": "2018-04-16T15:02:07Z"
 		},
 		{
 			"checksumSHA1": "sbxmQDSULBsu/48D+BHznW8YRmg=",
 			"path": "github.com/zpatrick/go-config",
 			"revision": "710646a45582fde23bf77bacbc2f38008dc7ffc2",
 			"revisionTime": "2016-11-18T20:29:31Z"
+		},
+		{
+			"checksumSHA1": "WIj7ohl5uNITYvQyek7UdBN5ftA=",
+			"path": "gopkg.in/fatih/set.v0",
+			"revision": "27c40922c40b43fe04554d8223a402af3ea333f3",
+			"revisionTime": "2014-12-10T08:48:24Z"
 		},
 		{
 			"checksumSHA1": "nr8p9hxusGCgahnWSczcIpuytfk=",
