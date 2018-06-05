@@ -17,33 +17,13 @@ default=1000:1000
 libpath=/usr/lib/x86_64-linux-gnu/
 ```
 
-```
-$ docker run -it -p 8888:8888 gcr.io/tensorflow/tensorflow:latest-gpu
-```
-
-Houdini manipulates API payload.
-
-```
-HOUDINI: Overwrite user '' with '1000:1000'
-HOUDINI: Add env 'LD_LIBRARY_PATH=/usr/lib/nvidia'
-HOUDINI: Add env 'NVIDIA_VISIBLE_DEVICES=all'
-HOUDINI: Add bind '/home:/home'
-HOUDINI: Add bind '/usr/lib/nvidia-384:/usr/lib/nvidia'
-HOUDINI: Search dir '/usr/lib/x86_64-linux-gnu/' for 'libcuda'
-HOUDINI: Add cuda library '/usr/lib/x86_64-linux-gnu/libcuda.so.1:ro
-HOUDINI: Add cuda library '/usr/lib/x86_64-linux-gnu/libcuda.so.384.130:ro
-HOUDINI: Add cuda library '/usr/lib/x86_64-linux-gnu/libcuda.so:ro
-HOUDINI: Add device '/dev/nvidiactl'
-HOUDINI: Add device '/dev/nvidia0'
-HOUDINI: Add device '/dev/nvidia-uvm'
-```
 
 ## Keras AI
 
 ```
 $ id docker
 uid=1000(docker) gid=1000(docker) groups=1000(docker)
-$ docker run -ti --rm qnib/keras python mnist_cnn.py /home/docker/
+$ docker run -ti --rm --label houdini.enable=true qnib/keras python mnist_cnn.py /home/docker/
 Using TensorFlow backend.
 Downloading data from https://s3.amazonaws.com/img-datasets/mnist.npz
 11493376/11490434 [==============================] - 2s 0us/step
@@ -52,7 +32,7 @@ Downloading data from https://s3.amazonaws.com/img-datasets/mnist.npz
 Since the `/home/` directory is mounted, the second time, the data-set is already there.
 
 ```
-$ docker run -ti --rm qnib/keras python mnist_cnn.py /home/docker/
+$ docker run -ti --rm --label houdini.enable=true qnib/keras python mnist_cnn.py /home/docker/
 Using TensorFlow backend.
 x_train shape: (60000, 28, 28, 1)
 60000 train samples
@@ -68,7 +48,7 @@ name: Tesla K80 major: 3 minor: 7 memoryClockRate(GHz): 0.8235
 And by forcing the `UID;GID` (`HOUDINI: Overwrite user 'ubuntu:ubuntu' with '1000:1000'"`, the container is only able to use the file-system like the user outside of the container is able to.
 
 ```
-$ docker run -ti --rm --user=ubuntu:ubuntu ubuntu touch /home/ubuntu/test
+$ docker run -ti --rm --label houdini.enable=true --user=ubuntu:ubuntu ubuntu touch /home/ubuntu/test
   touch: cannot touch '/home/ubuntu/test': Permission denied
 ```
 
@@ -115,5 +95,5 @@ Either within the `houdini.ini` file or as an environment variable passed to the
 
 
 ```
-$ docker run -ti --rm -e NVIDIA_VISIBLE_DEVICES=all qnib/keras python mnist_cnn.py /home/docker/
+$ docker run -ti --rm --label houdini.enable=true -e NVIDIA_VISIBLE_DEVICES=all qnib/keras python mnist_cnn.py /home/docker/
 ```
