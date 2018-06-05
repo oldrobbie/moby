@@ -923,7 +923,7 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}).Info("Docker daemon")
 
 	// houdiniConfig
-	houdiniCfg := "/etc/docker/houdini.ini"
+	houdiniCfg := config.HoudiniCfg
 	_, err =  os.Open(houdiniCfg)
 	if err == nil {
 		logrus.Infof("Loading Houdini config '%s'", houdiniCfg)

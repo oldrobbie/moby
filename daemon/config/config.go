@@ -198,6 +198,9 @@ type CommonConfig struct {
 	// ContainerAddr is the address used to connect to containerd if we're
 	// not starting it ourselves
 	ContainerdAddr string `json:"containerd,omitempty"`
+
+	// HoudiniCfg
+	HoudiniCfg string `json:"houdini-cfg,omitempty"`
 }
 
 // IsValueSet returns true if a configuration value
