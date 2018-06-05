@@ -101,7 +101,7 @@ func evalDevices(env []string, devSet *set.Set) (ds *set.Set, err error) {
 
 func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types.ContainerCreateConfig, error) {
 	// check for label, if not present of false -> SKIP
-	triggerLabel, _ := c.StringOr("labels.trigger", "houdini.enable")
+	triggerLabel, _ := c.StringOr("default.trigger-label", "houdini.enable")
 	v, ok := params.Config.Labels[triggerLabel]
 	if ok {
 		if v != "true" {
