@@ -3,11 +3,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -22,13 +22,12 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/daemon"
-	"github.com/docker/docker/integration-cli/request"
 	testdaemon "github.com/docker/docker/internal/test/daemon"
+	"github.com/docker/docker/internal/test/request"
 	"github.com/docker/swarmkit/ca"
 	"github.com/go-check/check"
 	"github.com/gotestyourself/gotestyourself/assert"
 	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"golang.org/x/net/context"
 )
 
 var defaultReconciliationTimeout = 30 * time.Second
@@ -242,7 +241,7 @@ func (s *DockerSwarmSuite) TestAPISwarmPromoteDemote(c *check.C) {
 	node := d1.GetNode(c, d1.NodeID())
 	node.Spec.Role = swarm.NodeRoleWorker
 	url := fmt.Sprintf("/nodes/%s/update?version=%d", node.ID, node.Version.Index)
-	res, body, err := request.DoOnHost(d1.Sock(), url, request.Method("POST"), request.JSONBody(node.Spec))
+	res, body, err := request.Post(url, request.Host(d1.Sock()), request.JSONBody(node.Spec))
 	c.Assert(err, checker.IsNil)
 	b, err := request.ReadBody(body)
 	c.Assert(err, checker.IsNil)
@@ -507,11 +506,11 @@ func (s *DockerSwarmSuite) TestAPISwarmScaleNoRollingUpdate(c *check.C) {
 	id := d.CreateService(c, simpleTestService, setInstances(instances))
 
 	waitAndAssert(c, defaultReconciliationTimeout, d.CheckActiveContainerCount, checker.Equals, instances)
-	containers := d.ActiveContainers()
+	containers := d.ActiveContainers(c)
 	instances = 4
 	d.UpdateService(c, d.GetService(c, id), setInstances(instances))
 	waitAndAssert(c, defaultReconciliationTimeout, d.CheckActiveContainerCount, checker.Equals, instances)
-	containers2 := d.ActiveContainers()
+	containers2 := d.ActiveContainers(c)
 
 loop0:
 	for _, c1 := range containers {
@@ -529,7 +528,7 @@ func (s *DockerSwarmSuite) TestAPISwarmInvalidAddress(c *check.C) {
 	req := swarm.InitRequest{
 		ListenAddr: "",
 	}
-	res, _, err := request.DoOnHost(d.Sock(), "/swarm/init", request.Method("POST"), request.JSONBody(req))
+	res, _, err := request.Post("/swarm/init", request.Host(d.Sock()), request.JSONBody(req))
 	c.Assert(err, checker.IsNil)
 	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 
@@ -537,7 +536,7 @@ func (s *DockerSwarmSuite) TestAPISwarmInvalidAddress(c *check.C) {
 		ListenAddr:  "0.0.0.0:2377",
 		RemoteAddrs: []string{""},
 	}
-	res, _, err = request.DoOnHost(d.Sock(), "/swarm/join", request.Method("POST"), request.JSONBody(req2))
+	res, _, err = request.Post("/swarm/join", request.Host(d.Sock()), request.JSONBody(req2))
 	c.Assert(err, checker.IsNil)
 	c.Assert(res.StatusCode, checker.Equals, http.StatusBadRequest)
 }
@@ -810,10 +809,6 @@ func (s *DockerSwarmSuite) TestAPISwarmRestartCluster(c *check.C) {
 				if err := daemon.StopWithError(); err != nil {
 					errs <- err
 				}
-				// FIXME(vdemeester) This is duplicated…
-				if root := os.Getenv("DOCKER_REMAP_ROOT"); root != "" {
-					daemon.Root = filepath.Dir(daemon.Root)
-				}
 			}(d)
 		}
 		wg.Wait()
@@ -943,7 +938,7 @@ func (s *DockerSwarmSuite) TestAPISwarmHealthcheckNone(c *check.C) {
 
 	waitAndAssert(c, defaultReconciliationTimeout, d.CheckActiveContainerCount, checker.Equals, instances)
 
-	containers := d.ActiveContainers()
+	containers := d.ActiveContainers(c)
 
 	out, err = d.Cmd("exec", containers[0], "ping", "-c1", "-W3", "top")
 	c.Assert(err, checker.IsNil, check.Commentf(out))

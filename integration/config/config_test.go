@@ -2,6 +2,7 @@ package config // import "github.com/docker/docker/integration/config"
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"sort"
 	"testing"
@@ -12,12 +13,10 @@ import (
 	swarmtypes "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration/internal/swarm"
-	"github.com/docker/docker/internal/testutil"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gotestyourself/gotestyourself/assert"
 	is "github.com/gotestyourself/gotestyourself/assert/cmp"
 	"github.com/gotestyourself/gotestyourself/skip"
-	"golang.org/x/net/context"
 )
 
 func TestConfigList(t *testing.T) {
@@ -26,8 +25,8 @@ func TestConfigList(t *testing.T) {
 	defer setupTest(t)()
 	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
-	assert.NilError(t, err)
+	client := d.NewClientT(t)
+	defer client.Close()
 
 	ctx := context.Background()
 
@@ -47,7 +46,7 @@ func TestConfigList(t *testing.T) {
 	config1ID := createConfig(ctx, t, client, testName1, []byte("TESTINGDATA1"), map[string]string{"type": "production"})
 
 	names := func(entries []swarmtypes.Config) []string {
-		values := []string{}
+		var values []string
 		for _, entry := range entries {
 			values = append(values, entry.Spec.Name)
 		}
@@ -117,8 +116,8 @@ func TestConfigsCreateAndDelete(t *testing.T) {
 	defer setupTest(t)()
 	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
-	assert.NilError(t, err)
+	client := d.NewClientT(t)
+	defer client.Close()
 
 	ctx := context.Background()
 
@@ -136,7 +135,7 @@ func TestConfigsCreateAndDelete(t *testing.T) {
 	assert.NilError(t, err)
 
 	insp, _, err = client.ConfigInspectWithRaw(ctx, configID)
-	testutil.ErrorContains(t, err, "No such config")
+	assert.Check(t, is.ErrorContains(err, "No such config"))
 }
 
 func TestConfigsUpdate(t *testing.T) {
@@ -145,8 +144,8 @@ func TestConfigsUpdate(t *testing.T) {
 	defer setupTest(t)()
 	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
-	assert.NilError(t, err)
+	client := d.NewClientT(t)
+	defer client.Close()
 
 	ctx := context.Background()
 
@@ -190,15 +189,15 @@ func TestConfigsUpdate(t *testing.T) {
 	// this test will produce an error in func UpdateConfig
 	insp.Spec.Data = []byte("TESTINGDATA2")
 	err = client.ConfigUpdate(ctx, configID, insp.Version, insp.Spec)
-	testutil.ErrorContains(t, err, "only updates to Labels are allowed")
+	assert.Check(t, is.ErrorContains(err, "only updates to Labels are allowed"))
 }
 
 func TestTemplatedConfig(t *testing.T) {
 	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-
+	client := d.NewClientT(t)
+	defer client.Close()
 	ctx := context.Background()
-	client := swarm.GetClient(t, d)
 
 	referencedSecretName := "referencedsecret-" + t.Name()
 	referencedSecretSpec := swarmtypes.SecretSpec{
@@ -338,8 +337,8 @@ func TestConfigInspect(t *testing.T) {
 	defer setupTest(t)()
 	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
-	client, err := client.NewClientWithOpts(client.WithHost((d.Sock())))
-	assert.NilError(t, err)
+	client := d.NewClientT(t)
+	defer client.Close()
 
 	ctx := context.Background()
 

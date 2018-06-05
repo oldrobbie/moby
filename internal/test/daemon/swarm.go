@@ -5,14 +5,48 @@ import (
 	"fmt"
 
 	"github.com/docker/docker/api/types/swarm"
+	"github.com/docker/docker/internal/test"
 	"github.com/gotestyourself/gotestyourself/assert"
 	"github.com/pkg/errors"
 )
 
 const (
-	defaultSwarmPort       = 2477
+	// DefaultSwarmPort is the default port use for swarm in the tests
+	DefaultSwarmPort       = 2477
 	defaultSwarmListenAddr = "0.0.0.0"
 )
+
+// StartAndSwarmInit starts the daemon (with busybox) and init the swarm
+func (d *Daemon) StartAndSwarmInit(t testingT) {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
+	// avoid networking conflicts
+	args := []string{"--iptables=false", "--swarm-default-advertise-addr=lo"}
+	d.StartWithBusybox(t, args...)
+
+	d.SwarmInit(t, swarm.InitRequest{})
+}
+
+// StartAndSwarmJoin starts the daemon (with busybox) and join the specified swarm as worker or manager
+func (d *Daemon) StartAndSwarmJoin(t testingT, leader *Daemon, manager bool) {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
+	// avoid networking conflicts
+	args := []string{"--iptables=false", "--swarm-default-advertise-addr=lo"}
+	d.StartWithBusybox(t, args...)
+
+	tokens := leader.JoinTokens(t)
+	token := tokens.Worker
+	if manager {
+		token = tokens.Manager
+	}
+	d.SwarmJoin(t, swarm.JoinRequest{
+		RemoteAddrs: []string{leader.SwarmListenAddr()},
+		JoinToken:   token,
+	})
+}
 
 // SpecConstructor defines a swarm spec constructor
 type SpecConstructor func(*swarm.Spec)
@@ -29,6 +63,9 @@ func (d *Daemon) NodeID() string {
 
 // SwarmInit initializes a new swarm cluster.
 func (d *Daemon) SwarmInit(t assert.TestingT, req swarm.InitRequest) {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
 	if req.ListenAddr == "" {
 		req.ListenAddr = fmt.Sprintf("%s:%d", d.swarmListenAddr, d.SwarmPort)
 	}
@@ -41,6 +78,9 @@ func (d *Daemon) SwarmInit(t assert.TestingT, req swarm.InitRequest) {
 
 // SwarmJoin joins a daemon to an existing cluster.
 func (d *Daemon) SwarmJoin(t assert.TestingT, req swarm.JoinRequest) {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
 	if req.ListenAddr == "" {
 		req.ListenAddr = fmt.Sprintf("%s:%d", d.swarmListenAddr, d.SwarmPort)
 	}
@@ -67,6 +107,9 @@ func (d *Daemon) SwarmLeave(force bool) error {
 
 // SwarmInfo returns the swarm information of the daemon
 func (d *Daemon) SwarmInfo(t assert.TestingT) swarm.Info {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
 	cli := d.NewClientT(t)
 	info, err := cli.Info(context.Background())
 	assert.NilError(t, err, "get swarm info")
@@ -89,6 +132,9 @@ func (d *Daemon) SwarmUnlock(req swarm.UnlockRequest) error {
 
 // GetSwarm returns the current swarm object
 func (d *Daemon) GetSwarm(t assert.TestingT) swarm.Swarm {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
 	cli := d.NewClientT(t)
 	defer cli.Close()
 
@@ -99,6 +145,9 @@ func (d *Daemon) GetSwarm(t assert.TestingT) swarm.Swarm {
 
 // UpdateSwarm updates the current swarm object with the specified spec constructors
 func (d *Daemon) UpdateSwarm(t assert.TestingT, f ...SpecConstructor) {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
 	cli := d.NewClientT(t)
 	defer cli.Close()
 
@@ -113,6 +162,9 @@ func (d *Daemon) UpdateSwarm(t assert.TestingT, f ...SpecConstructor) {
 
 // RotateTokens update the swarm to rotate tokens
 func (d *Daemon) RotateTokens(t assert.TestingT) {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
 	cli := d.NewClientT(t)
 	defer cli.Close()
 
@@ -130,6 +182,9 @@ func (d *Daemon) RotateTokens(t assert.TestingT) {
 
 // JoinTokens returns the current swarm join tokens
 func (d *Daemon) JoinTokens(t assert.TestingT) swarm.JoinTokens {
+	if ht, ok := t.(test.HelperT); ok {
+		ht.Helper()
+	}
 	cli := d.NewClientT(t)
 	defer cli.Close()
 

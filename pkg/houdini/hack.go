@@ -75,24 +75,13 @@ func evalDevices(env []string, devSet *set.Set) (ds *set.Set, err error) {
 						if ! match {
 							continue
 						}
-						dm := container.DeviceMapping{
-							PathOnHost:        fmt.Sprintf("/dev/%s", f.Name()),
-							PathInContainer:   fmt.Sprintf("/dev/%s",  f.Name()),
-							CgroupPermissions: "rwm",
-						}
-						devSet.Add(dm)
-
+						devSet.Add(fmt.Sprintf("/dev/%s", f.Name()))
 					}
 				}
 			} else {
 				dev := strings.Split(slc[1], ",")
 				for _, d := range dev {
-					dm := container.DeviceMapping{
-						PathOnHost:        fmt.Sprintf("/dev/nvidia%s", d),
-						PathInContainer:   fmt.Sprintf("/dev/nvidia%s", d),
-						CgroupPermissions: "rwm",
-					}
-					devSet.Add(dm)
+					devSet.Add(fmt.Sprintf("/dev/nvidia%s", d))
 				}
 			}
 		}
@@ -103,12 +92,7 @@ func evalDevices(env []string, devSet *set.Set) (ds *set.Set, err error) {
 				if _, err := os.Stat(devPath); err != nil {
 					continue
 				}
-				dm := container.DeviceMapping{
-					PathOnHost:        devPath,
-					PathInContainer:   devPath,
-					CgroupPermissions: "rwm",
-				}
-				devSet.Add(dm)
+				devSet.Add(devPath)
 			}
 		}
 	}
@@ -116,13 +100,17 @@ func evalDevices(env []string, devSet *set.Set) (ds *set.Set, err error) {
 }
 
 func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types.ContainerCreateConfig, error) {
-	// Skip Houdini
-	skipLabel, _ := c.StringOr("labels.skip", "com.docker.houdini.skip")
-	if v, ok := params.Config.Labels[skipLabel] ; ok {
-		if v == "true" {
-			logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is 'true'", skipLabel)
+	// check for label, if not present of false -> SKIP
+	triggerLabel, _ := c.StringOr("labels.trigger", "houdini.enable")
+	v, ok := params.Config.Labels[triggerLabel]
+	if ok {
+		if v != "true" {
+			logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not 'true'.", triggerLabel)
 			return params, nil
 		}
+	} else {
+		logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not set.", triggerLabel)
+		return params, nil
 	}
 	// USER
 	uMode, _ := c.StringOr("user.mode", "default")
@@ -217,12 +205,7 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 			continue
 		}
 		if _, err := os.Stat(dev); err == nil {
-			dm := container.DeviceMapping{
-				PathOnHost: dev,
-				PathInContainer: dev,
-				CgroupPermissions: "rwm",
-			}
-			devSet.Add(dm)
+			devSet.Add(dev)
 		}
 	}
 	// Add NVIDIA_VISIBLE_DEVICES
@@ -230,8 +213,13 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	// Eval devmap again
 	devMap := []container.DeviceMapping{}
 	for _, d := range devSet.List() {
-		dm := d.(container.DeviceMapping)
-		logrus.Infof("HOUDINI: Add device '%s'", dm.PathOnHost)
+		dev := d.(string)
+		logrus.Infof("HOUDINI: Add device '%s'", dev)
+		dm := container.DeviceMapping{
+			PathOnHost: dev,
+			PathInContainer: dev,
+			CgroupPermissions: "rwm",
+		}
 		devMap = append(devMap, dm)
 	}
 	params.HostConfig.Devices = devMap
