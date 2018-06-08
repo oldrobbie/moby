@@ -101,7 +101,7 @@ func evalDevices(env []string, devSet *set.Set) (ds *set.Set, err error) {
 
 func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types.ContainerCreateConfig, error) {
 	// check for label, if not present of false -> SKIP
-	triggerLabel, _ := c.StringOr("labels.trigger", "houdini.enable")
+	triggerLabel, _ := c.StringOr("default.trigger-label", "houdini.enable")
 	v, ok := params.Config.Labels[triggerLabel]
 	if ok {
 		if v != "true" {
@@ -111,6 +111,18 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	} else {
 		logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not set.", triggerLabel)
 		return params, nil
+	}
+
+	// remove the container automatically
+	cntRmLabel, _ := c.StringOr("container.remove-label", "houdini.container.remove")
+	v, ok = params.Config.Labels[cntRmLabel]
+	if ok {
+		logrus.Infof("HOUDINI: set '--rm' flag according to '%s=%s'", cntRmLabel, v)
+		params.HostConfig.AutoRemove = v == "true"
+
+	} else if b, _ := c.BoolOr("container.remove", false);b {
+		logrus.Infof("HOUDINI: remove container when finished")
+		params.HostConfig.AutoRemove = true
 	}
 	// USER
 	uMode, _ := c.StringOr("user.mode", "default")
@@ -158,15 +170,41 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 
 		}
 	}
+
 	// Env
+	envDic := map[string]string{}
+	for _, e := range params.Config.Env {
+		slc := strings.Split(e, "=")
+		if len(slc) == 2 {
+			envDic[slc[0]] = slc[1]
+		}
+	}
 	envs, err := c.StringOr("default.environment", "")
 	for _, env := range strings.Split(envs, ",") {
 		if env == "" {
 			continue
 		}
-		logrus.Infof("HOUDINI: Add env '%s'", env)
-		params.Config.Env = append(params.Config.Env, env)
+		slc := strings.Split(env, "=")
+		if len(slc) == 2 {
+			if _, ok := envDic[slc[0]]; !ok {
+				logrus.Infof("HOUDINI: Add env '%s'", env)
+				envDic[slc[0]] = slc[1]
+			} else {
+				if b, _ := c.BoolOr("default.force-environment", false);b {
+					logrus.Infof("HOUDINI: ENV key '%s' already set; overwritten with '%s' (due to default.force-environment=true", slc[0], env)
+					envDic[slc[0]] = slc[1]
+				} else {
+					logrus.Infof("HOUDINI: ENV key '%s' already set, skipping new value '%s'", env, slc[1])
+				}
+			}
+		}
 	}
+	newEnv := []string{}
+	for k,v := range envDic {
+		newEnv = append(newEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+	params.Config.Env = newEnv
+
 	// MOUNTS
 	mnts, err := c.StringOr("default.mounts", "")
 	if err != nil {
@@ -183,7 +221,7 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	cfiles, _ := c.StringOr("cuda.files", "libcuda")
 	cdirs, err := c.String("cuda.libpath")
 	if err != nil || cdirs == "" {
-		logrus.Infof("HOUDINI: cuda.libpath is empty - skip", cdirs, cfiles)
+		logrus.Infof("HOUDINI: cuda.libpath is empty - skip")
 	} else {
 		if err == nil {
 			for _, cdir := range strings.Split(cdirs, ",") {
