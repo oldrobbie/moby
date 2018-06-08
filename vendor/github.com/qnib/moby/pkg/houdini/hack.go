@@ -194,7 +194,7 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 					logrus.Infof("HOUDINI: ENV key '%s' already set; overwritten with '%s' (due to default.force-environment=true)", slc[0], env)
 					envDic[slc[0]] = slc[1]
 				} else {
-					logrus.Infof("HOUDINI: ENV key '%s' already set, skipping new value '%s' (due to default.force-environment=false)", env, slc[1])
+					logrus.Infof("HOUDINI: ENV  '%s' already set (%s), skipping new value '%s' (due to default.force-environment=false)", slc[0], env, slc[1])
 				}
 			}
 		}
