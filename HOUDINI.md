@@ -8,7 +8,9 @@ $ cat /etc/docker/houdini.ini
 mounts=/home:/home,/usr/lib/nvidia-384:/usr/lib/nvidia
 environment=LD_LIBRARY_PATH=/usr/lib/nvidia,NVIDIA_VISIBLE_DEVICES=all
 #devices=/dev/nvidiactl,/dev/nvidia-uvm
-trigger-label=houdini.enable
+trigger-label=houdini
+# Make houdini interaction the default
+force-houdini=false
 
 [user]
 mode=static

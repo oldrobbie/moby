@@ -100,22 +100,36 @@ func evalDevices(env []string, devSet *set.Set) (ds *set.Set, err error) {
 }
 
 func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types.ContainerCreateConfig, error) {
-	// check for label, if not present of false -> SKIP
-	triggerLabel, _ := c.StringOr("default.trigger-label", "houdini.enable")
-	v, ok := params.Config.Labels[triggerLabel]
-	if ok {
-		if v != "true" {
-			logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not 'true'.", triggerLabel)
+	// force houdini
+	forceHoudini, _ := c.BoolOr("default.force-houdini", false)
+	// check for debug flag
+	debugHoudini, _ := c.BoolOr("default.debug", false)
+	if ! forceHoudini {
+		// check for label, if not present of false -> SKIP
+		triggerLabel, err := c.StringOr("default.trigger-label", "houdini")
+		if err != nil {
+			logrus.Infof("HOUDINI: %s", err.Error())
+		}
+		v, ok := params.Config.Labels[triggerLabel]
+		if ok {
+			if v != "true" {
+				logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not 'true'.", triggerLabel)
+				return params, nil
+			}
+		} else {
+			logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not set.", triggerLabel)
+			if debugHoudini {
+				logrus.Infof("HOUDINI: Labels: %v", params.Config.Labels)
+			}
 			return params, nil
 		}
 	} else {
-		logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not set.", triggerLabel)
-		return params, nil
+		logrus.Infof("HOUDINI: Force houdini on all containers")
 	}
 
 	// remove the container automatically
 	cntRmLabel, _ := c.StringOr("container.remove-label", "houdini.container.remove")
-	v, ok = params.Config.Labels[cntRmLabel]
+	v, ok := params.Config.Labels[cntRmLabel]
 	if ok {
 		logrus.Infof("HOUDINI: set '--rm' flag according to '%s=%s'", cntRmLabel, v)
 		params.HostConfig.AutoRemove = v == "true"
@@ -217,6 +231,7 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		logrus.Infof("HOUDINI: Add bind '%s'", m)
 		params.HostConfig.Binds = append(params.HostConfig.Binds, m)
 	}
+
 	// CUDA libs
 	cfiles, _ := c.StringOr("cuda.files", "libcuda")
 	cdirs, err := c.String("cuda.libpath")
@@ -235,8 +250,8 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 			}
 		}
 	}
-	devSet := set.New()
 	// DEVICES
+	devSet := set.New()
 	devs, err := c.StringOr("default.devices", "")
 	for _, dev := range strings.Split(devs, ",") {
 		if dev == "" {
