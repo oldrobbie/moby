@@ -139,35 +139,42 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		params.HostConfig.AutoRemove = true
 	}
 	// USER
-	uMode, _ := c.StringOr("user.mode", "default")
 	user := ""
-	switch uMode {
-	case "static":
-		uCfg, err := c.String("user.default")
-		if err != nil {
-			logrus.Warnln("HOUDINI: user.default is not set!")
-		}
-		logrus.Infof("HOUDINI: Overwrite user '%s' with '%s'", params.Config.User, uCfg)
-		params.Config.User = uCfg
-	case "default":
-		user, _ = c.StringOr("user.default", "")
-	case "env":
-		key, _ := c.StringOr("user.key", "HOUDINI_USER")
-		for _, e := range params.Config.Env {
-			kv := strings.Split(e, "=")
-			if key == kv[0] {
-				user = kv[1]
-				logrus.Infof("HOUDINI: Got user '%s' from variable '%s'", user, key)
-				break
-			}
-		}
-		if user == "" {
-			logrus.Infof("HOUDINI: Could not derive user from container env var '%s', look for user.default", key)
-			user, _ = c.StringOr("user.default", "")
-		}
+	keepUserLabel, _ := c.StringOr("user.keep-user-label", "houdini.user.keep")
+	v, ok = params.Config.Labels[keepUserLabel]
+	if ok && v == "true" {
+		logrus.Infof("HOUDINI: Keep the user as '%s==true'", keepUserLabel)
 
-	default:
-		logrus.Errorf("HOUDINI: Unkown user-mode '%s'", uMode)
+	} else {
+		uMode, _ := c.StringOr("user.mode", "default")
+		switch uMode {
+		case "static":
+			uCfg, err := c.String("user.default")
+			if err != nil {
+				logrus.Warnln("HOUDINI: user.default is not set!")
+			}
+			logrus.Infof("HOUDINI: Overwrite user '%s' with '%s'", params.Config.User, uCfg)
+			params.Config.User = uCfg
+		case "default":
+			user, _ = c.StringOr("user.default", "")
+		case "env":
+			key, _ := c.StringOr("user.key", "HOUDINI_USER")
+			for _, e := range params.Config.Env {
+				kv := strings.Split(e, "=")
+				if key == kv[0] {
+					user = kv[1]
+					logrus.Infof("HOUDINI: Got user '%s' from variable '%s'", user, key)
+					break
+				}
+			}
+			if user == "" {
+				logrus.Infof("HOUDINI: Could not derive user from container env var '%s', look for user.default", key)
+				user, _ = c.StringOr("user.default", "")
+			}
+
+		default:
+			logrus.Errorf("HOUDINI: Unkown user-mode '%s'", uMode)
+		}
 	}
 	if user != "" {
 		uHome, uid, gid, err := evalUser(user)
@@ -194,7 +201,7 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		}
 	}
 	envs, err := c.StringOr("default.environment", "")
-	for _, env := range strings.Split(envs, ",") {
+	for _, env := range strings.Split(envs, ";") {
 		if env == "" {
 			continue
 		}
