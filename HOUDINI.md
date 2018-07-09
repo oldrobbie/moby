@@ -5,19 +5,49 @@
 ```
 $ cat /etc/docker/houdini.ini
 [default]
-mounts=/home:/home,/usr/lib/nvidia-384:/usr/lib/nvidia
-environment=LD_LIBRARY_PATH=/usr/lib/nvidia,NVIDIA_VISIBLE_DEVICES=all
-#devices=/dev/nvidiactl,/dev/nvidia-uvm
-trigger-label=houdini
-# Make houdini interaction the default
+debug=false
+# If true, apply houdini onto each container
 force-houdini=false
+# trigger-label defines the label to trigger houdini (in case force-houdini is false)
+trigger-label=houdini
+# trigger environment variable (in case force-houdini is false)
+trigger-env=HOUDINI_ENABLED
+# Mounts to be applied
+mounts=/home:/home
+# Additional ENV - if the key already exists it won't be overwritten (see force-environment), semicolon separated
+environment=DATA=/data
+# Overwrite ENV if key already exists
+force-environment=false
+# /dev/nvidiactl,/dev/nvidia-uvm will be added in case nvidia devices are found
+#devices=/dev/nvidia0
+[container]
+# if label is set use the value
+remove-label=houdini.container.remove
+# Removes the container automatically once finished
+remove=true
 
 [user]
+keep-user-label=houdini.user.keep
 mode=static
 default=1000:1000
 
-[cuda]
-libpath=/usr/lib/x86_64-linux-gnu/
+[gpu]
+# Apply GPU enablement to all houdini containers (use in conjunction with force-houdini=true)
+force=false
+# ENV to trigger GPU (if force=false)
+trigger-env=HOUDINI_GPU_ENABLED
+# label to trigger GPU (if force=false)
+trigger-label=houdini-gpu-enabled
+# Mounts specific to GPU
+mounts=/usr/lib/nvidia-384:/usr/lib/nvidia:ro,/usr/bin/nvidia-smi:/usr/bin/nvidia-smi:ro
+# Additional ENV - if the key already exists it won't be overwritten (see force-environment), semicolon separated
+environment=LD_LIBRARY_PATH=/usr/lib/nvidia|NVIDIA_VISIBLE_DEVICES=all
+# Overwrite ENV if key already exists
+force-environment=true
+# What file prefix to look out for (comma separated list)
+cuda-files=libcuda
+# Where to look for those files
+cuda-libpath=/usr/lib/x86_64-linux-gnu/
 ```
 
 
