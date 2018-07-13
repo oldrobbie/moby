@@ -146,32 +146,43 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	forceHoudini, _ := c.BoolOr("default.force-houdini", false)
 	// check for debug flag
 	debugHoudini, _ := c.BoolOr("default.debug", false)
-	if ! forceHoudini {
-		// check for label, if not present of false -> SKIP
-		triggerLabel, err := c.StringOr("default.trigger-label", "houdini")
-		if err != nil {
-			logrus.Infof("HOUDINI: %s", err.Error())
-		}
-		vLabel, okLabel := params.Config.Labels[triggerLabel]
-		triggerEnv, err := c.StringOr("default.trigger-env", "HOUDINI_ENABLED")
-		envDic := getEnvDict(params.Config.Env)
-		vEnv, okEnv := envDic[triggerEnv]
-		if okEnv || okLabel {
-			if vLabel != "true" && vEnv != "true" {
-				logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' nor env '%s' are not 'true'.", triggerLabel, triggerEnv)
-				return params, nil
-			}
-		} else {
-			logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' nor env '%s' is not set.", triggerLabel, triggerEnv)
-			if debugHoudini {
-				logrus.Infof("HOUDINI: Labels: %v", params.Config.Labels)
-				logrus.Infof("HOUDINI: Env: %v", params.Config.Env)
-			}
-			return params, nil
-		}
-	} else {
-		logrus.Infof("HOUDINI: Force houdini on all containers")
+	triggerLabel, err := c.StringOr("default.trigger-label", "houdini")
+	if err != nil {
+		logrus.Infof("HOUDINI: %s", err.Error())
 	}
+	vLabel, okLabel := params.Config.Labels[triggerLabel]
+	triggerEnv, err := c.StringOr("default.trigger-env", "HOUDINI_ENABLED")
+	envDic := getEnvDict(params.Config.Env)
+	vEnv, okEnv := envDic[triggerEnv]
+	triggerGpuLabel, err := c.StringOr("gpu.trigger-label", "houdini-gpu-enabled")
+	if err != nil {
+		logrus.Infof("HOUDINI: %s", err.Error())
+	}
+	vGpuLabel, okGpuLabel := params.Config.Labels[triggerGpuLabel]
+	triggerGpuEnv, err := c.StringOr("gpu.trigger-env", "HOUDINI_GPU_ENABLED")
+	vGpuEnv, okGpuEnv := envDic[triggerGpuEnv]
+	switch {
+	case forceHoudini:
+		logrus.Infof("HOUDINI: Force houdini on all containers")
+	// ENV is set
+	case okEnv && vEnv == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, since %s==true", vEnv)
+	case okGpuEnv && vGpuEnv == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, since GPU case is demanded %s==true", vGpuEnv)
+	// Labels are set
+	case okLabel && vLabel == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, as label '%s' is 'true'.", triggerLabel)
+	case okGpuLabel && vGpuLabel == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, as label '%s' is 'true'.", triggerGpuLabel)
+	default:
+		logrus.Infof("HOUDINI: Skip Houdini, since labels and env do not trigger the patch.")
+		if debugHoudini {
+			logrus.Infof("HOUDINI: Labels: %v", params.Config.Labels)
+			logrus.Infof("HOUDINI: Env: %v", params.Config.Env)
+		}
+		return params, nil
+	}
+	/////// Containers
 	// remove the container automatically
 	cntRmLabel, _ := c.StringOr("container.remove-label", "houdini.container.remove")
 	v, ok := params.Config.Labels[cntRmLabel]
@@ -265,21 +276,13 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		}
 	}
 	//////////////// GPU
-	triggerLabel, err := c.StringOr("gpu.trigger-label", "houdini-gpu-enabled")
-	if err != nil {
-		logrus.Infof("HOUDINI: %s", err.Error())
-	}
-	vLabel, okLabel := params.Config.Labels[triggerLabel]
-	triggerEnv, err := c.StringOr("gpu.trigger-env", "HOUDINI_GPU_ENABLED")
-	envDic := getEnvDict(params.Config.Env)
-	vEnv, okEnv := envDic[triggerEnv]
 	switch {
-	case okEnv && vEnv == "true":
-		logrus.Infof("HOUDINI: Add GPU, as env '%s' is 'true'.", triggerEnv)
-	case okLabel && vLabel == "true":
-		logrus.Infof("HOUDINI: Add GPU, as label '%s' is 'true'.", triggerLabel)
+	case okGpuEnv && vGpuEnv == "true":
+		logrus.Infof("HOUDINI: Add GPU, as env '%s' is 'true'.", triggerGpuEnv)
+	case okGpuLabel && vGpuLabel == "true":
+		logrus.Infof("HOUDINI: Add GPU, as label '%s' is 'true'.", triggerGpuLabel)
 	default:
-		logrus.Infof("HOUDINI: Skip GPU, as label '%s' nor env '%s' are not 'true'.", triggerLabel, triggerEnv)
+		logrus.Infof("HOUDINI: Skip GPU, as label '%s' nor env '%s' are not 'true'.", triggerGpuLabel, triggerGpuEnv)
 		if len(devSet.List()) != 0 {
 			params.HostConfig.Devices = evalDevMap(devSet)
 		}

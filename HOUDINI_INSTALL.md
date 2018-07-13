@@ -97,7 +97,7 @@ $ systemctl daemon-reload
 ### Debug
 
 ```bash
-$ sudo systemctl status -l -n500 docker |awk -Fmsg= '/HOUDINI/{print $2}'
+$ sudo systemctl status -l -n500 docker |awk -Fmsg= '/HOUDINI:/{print $2}'
 "HOUDINI: Overwrite user '' with '1000:1000'"
 "HOUDINI: Found env 'DATA=/data'"
 "HOUDINI: Add env 'DATA=/data'"

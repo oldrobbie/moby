@@ -16,6 +16,48 @@ import (
 	"strconv"
 )
 
+
+func mergeEnv(oldEnv []string, newEnv string, force, debug bool) (env []string, err error){
+	envDic := getEnvDict(oldEnv)
+	for _, env := range strings.Split(newEnv, "|") {
+		if env == "" {
+			continue
+		}
+		if debug {
+			logrus.Infof("HOUDINI: Found env '%s'", env)
+		}
+		slc := strings.Split(env, "=")
+		if len(slc) == 2 {
+			if _, ok := envDic[slc[0]]; !ok {
+				logrus.Infof("HOUDINI: Add env '%s'", env)
+				envDic[slc[0]] = slc[1]
+			} else {
+				if force {
+					logrus.Infof("HOUDINI: ENV key '%s' already set; overwritten with '%s' (due to force-environment is enabled)", slc[0], env)
+					envDic[slc[0]] = slc[1]
+				} else {
+					logrus.Infof("HOUDINI: ENV  '%s' already set (%s), skipping new value '%s' (due to force-environment is disabled)", slc[0], env, slc[1])
+				}
+			}
+		}
+	}
+	for k,v := range envDic {
+		env = append(env, fmt.Sprintf("%s=%s", k, v))
+	}
+	return env, err
+}
+
+func getEnvDict(env []string) map[string]string {
+	envDic := map[string]string{}
+	for _, e := range env {
+		slc := strings.Split(e, "=")
+		if len(slc) == 2 {
+			envDic[slc[0]] = slc[1]
+		}
+	}
+	return envDic
+}
+
 func getCudaSO(p string, cfiles string) []string {
 	prefixes := strings.Split(cfiles, ",")
 	list := set.New()
@@ -100,22 +142,50 @@ func evalDevices(env []string, devSet *set.Set) (ds *set.Set, err error) {
 }
 
 func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types.ContainerCreateConfig, error) {
-	// check for label, if not present of false -> SKIP
-	triggerLabel, _ := c.StringOr("default.trigger-label", "houdini.enable")
-	v, ok := params.Config.Labels[triggerLabel]
-	if ok {
-		if v != "true" {
-			logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not 'true'.", triggerLabel)
-			return params, nil
+	// force houdini
+	forceHoudini, _ := c.BoolOr("default.force-houdini", false)
+	// check for debug flag
+	debugHoudini, _ := c.BoolOr("default.debug", false)
+	triggerLabel, err := c.StringOr("default.trigger-label", "houdini")
+	if err != nil {
+		logrus.Infof("HOUDINI: %s", err.Error())
+	}
+	vLabel, okLabel := params.Config.Labels[triggerLabel]
+	triggerEnv, err := c.StringOr("default.trigger-env", "HOUDINI_ENABLED")
+	envDic := getEnvDict(params.Config.Env)
+	vEnv, okEnv := envDic[triggerEnv]
+	triggerGpuLabel, err := c.StringOr("gpu.trigger-label", "houdini-gpu-enabled")
+	if err != nil {
+		logrus.Infof("HOUDINI: %s", err.Error())
+	}
+	vGpuLabel, okGpuLabel := params.Config.Labels[triggerGpuLabel]
+	triggerGpuEnv, err := c.StringOr("gpu.trigger-env", "HOUDINI_GPU_ENABLED")
+	vGpuEnv, okGpuEnv := envDic[triggerGpuEnv]
+	switch {
+	case forceHoudini:
+		logrus.Infof("HOUDINI: Force houdini on all containers")
+	// ENV is set
+	case okEnv && vEnv == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, since %s==true", vEnv)
+	case okGpuEnv && vGpuEnv == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, since GPU case is demanded %s==true", vGpuEnv)
+	// Labels are set
+	case okLabel && vLabel == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, as label '%s' is 'true'.", triggerLabel)
+	case okGpuLabel && vGpuLabel == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, as label '%s' is 'true'.", triggerGpuLabel)
+	default:
+		logrus.Infof("HOUDINI: Skip Houdini, since labels and env do not trigger the patch.")
+		if debugHoudini {
+			logrus.Infof("HOUDINI: Labels: %v", params.Config.Labels)
+			logrus.Infof("HOUDINI: Env: %v", params.Config.Env)
 		}
-	} else {
-		logrus.Infof("HOUDINI: Skip HOUDINI changes, as label '%s' is not set.", triggerLabel)
 		return params, nil
 	}
-
+	/////// Containers
 	// remove the container automatically
 	cntRmLabel, _ := c.StringOr("container.remove-label", "houdini.container.remove")
-	v, ok = params.Config.Labels[cntRmLabel]
+	v, ok := params.Config.Labels[cntRmLabel]
 	if ok {
 		logrus.Infof("HOUDINI: set '--rm' flag according to '%s=%s'", cntRmLabel, v)
 		params.HostConfig.AutoRemove = v == "true"
@@ -125,35 +195,42 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		params.HostConfig.AutoRemove = true
 	}
 	// USER
-	uMode, _ := c.StringOr("user.mode", "default")
 	user := ""
-	switch uMode {
-	case "static":
-		uCfg, err := c.String("user.default")
-		if err != nil {
-			logrus.Warnln("HOUDINI: user.default is not set!")
-		}
-		logrus.Infof("HOUDINI: Overwrite user '%s' with '%s'", params.Config.User, uCfg)
-		params.Config.User = uCfg
-	case "default":
-		user, _ = c.StringOr("user.default", "")
-	case "env":
-		key, _ := c.StringOr("user.key", "HOUDINI_USER")
-		for _, e := range params.Config.Env {
-			kv := strings.Split(e, "=")
-			if key == kv[0] {
-				user = kv[1]
-				logrus.Infof("HOUDINI: Got user '%s' from variable '%s'", user, key)
-				break
-			}
-		}
-		if user == "" {
-			logrus.Infof("HOUDINI: Could not derive user from container env var '%s', look for user.default", key)
-			user, _ = c.StringOr("user.default", "")
-		}
+	keepUserLabel, _ := c.StringOr("user.keep-user-label", "houdini.user.keep")
+	v, ok = params.Config.Labels[keepUserLabel]
+	if ok && v == "true" {
+		logrus.Infof("HOUDINI: Keep the user as '%s==true'", keepUserLabel)
 
-	default:
-		logrus.Errorf("HOUDINI: Unkown user-mode '%s'", uMode)
+	} else {
+		uMode, _ := c.StringOr("user.mode", "default")
+		switch uMode {
+		case "static":
+			uCfg, err := c.String("user.default")
+			if err != nil {
+				logrus.Warnln("HOUDINI: user.default is not set!")
+			}
+			logrus.Infof("HOUDINI: Overwrite user '%s' with '%s'", params.Config.User, uCfg)
+			params.Config.User = uCfg
+		case "default":
+			user, _ = c.StringOr("user.default", "")
+		case "env":
+			key, _ := c.StringOr("user.key", "HOUDINI_USER")
+			for _, e := range params.Config.Env {
+				kv := strings.Split(e, "=")
+				if key == kv[0] {
+					user = kv[1]
+					logrus.Infof("HOUDINI: Got user '%s' from variable '%s'", user, key)
+					break
+				}
+			}
+			if user == "" {
+				logrus.Infof("HOUDINI: Could not derive user from container env var '%s', look for user.default", key)
+				user, _ = c.StringOr("user.default", "")
+			}
+
+		default:
+			logrus.Errorf("HOUDINI: Unkown user-mode '%s'", uMode)
+		}
 	}
 	if user != "" {
 		uHome, uid, gid, err := evalUser(user)
@@ -172,39 +249,9 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	}
 
 	// Env
-	envDic := map[string]string{}
-	for _, e := range params.Config.Env {
-		slc := strings.Split(e, "=")
-		if len(slc) == 2 {
-			envDic[slc[0]] = slc[1]
-		}
-	}
 	envs, err := c.StringOr("default.environment", "")
-	for _, env := range strings.Split(envs, ",") {
-		if env == "" {
-			continue
-		}
-		slc := strings.Split(env, "=")
-		if len(slc) == 2 {
-			if _, ok := envDic[slc[0]]; !ok {
-				logrus.Infof("HOUDINI: Add env '%s'", env)
-				envDic[slc[0]] = slc[1]
-			} else {
-				if b, _ := c.BoolOr("default.force-environment", false);b {
-					logrus.Infof("HOUDINI: ENV key '%s' already set; overwritten with '%s' (due to default.force-environment=true)", slc[0], env)
-					envDic[slc[0]] = slc[1]
-				} else {
-					logrus.Infof("HOUDINI: ENV  '%s' already set (%s), skipping new value '%s' (due to default.force-environment=false)", slc[0], env, slc[1])
-				}
-			}
-		}
-	}
-	newEnv := []string{}
-	for k,v := range envDic {
-		newEnv = append(newEnv, fmt.Sprintf("%s=%s", k, v))
-	}
-	params.Config.Env = newEnv
-
+	forceEnv, _ := c.BoolOr("default.force-environment", false)
+	params.Config.Env, _ = mergeEnv(params.Config.Env, envs, forceEnv, debugHoudini)
 	// MOUNTS
 	mnts, err := c.StringOr("default.mounts", "")
 	if err != nil {
@@ -217,11 +264,50 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		logrus.Infof("HOUDINI: Add bind '%s'", m)
 		params.HostConfig.Binds = append(params.HostConfig.Binds, m)
 	}
+	// DEVICES
+	devSet := set.New()
+	devs, err := c.StringOr("default.devices", "")
+	for _, dev := range strings.Split(devs, ",") {
+		if dev == "" {
+			continue
+		}
+		if _, err := os.Stat(dev); err == nil {
+			devSet.Add(dev)
+		}
+	}
+	//////////////// GPU
+	switch {
+	case okGpuEnv && vGpuEnv == "true":
+		logrus.Infof("HOUDINI: Add GPU, as env '%s' is 'true'.", triggerGpuEnv)
+	case okGpuLabel && vGpuLabel == "true":
+		logrus.Infof("HOUDINI: Add GPU, as label '%s' is 'true'.", triggerGpuLabel)
+	default:
+		logrus.Infof("HOUDINI: Skip GPU, as label '%s' nor env '%s' are not 'true'.", triggerGpuLabel, triggerGpuEnv)
+		if len(devSet.List()) != 0 {
+			params.HostConfig.Devices = evalDevMap(devSet)
+		}
+		return params, nil
+	}
+	mnts, err = c.StringOr("gpu.mounts", "")
+	if err != nil {
+		logrus.Errorf("HOUDINI: %s", err.Error())
+	}
+	for _, m := range strings.Split(mnts, ",") {
+		if m == "" {
+			continue
+		}
+		logrus.Infof("HOUDINI: Add GPU bind mount '%s'", m)
+		params.HostConfig.Binds = append(params.HostConfig.Binds, m)
+	}
+	// GPU-ENV
+	envs, err = c.StringOr("gpu.environment", "")
+	forceEnv, _ = c.BoolOr("gpu.force-environment", false)
+	params.Config.Env, _ = mergeEnv(params.Config.Env, envs, forceEnv, debugHoudini)
 	// CUDA libs
-	cfiles, _ := c.StringOr("cuda.files", "libcuda")
-	cdirs, err := c.String("cuda.libpath")
+	cfiles, _ := c.StringOr("gpu.cuda-files", "libcuda")
+	cdirs, err := c.String("gpu.cuda-libpath")
 	if err != nil || cdirs == "" {
-		logrus.Infof("HOUDINI: cuda.libpath is empty - skip")
+		logrus.Infof("HOUDINI: gpu.cuda-libpath is empty - skip")
 	} else {
 		if err == nil {
 			for _, cdir := range strings.Split(cdirs, ",") {
@@ -235,21 +321,13 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 			}
 		}
 	}
-	devSet := set.New()
-	// DEVICES
-	devs, err := c.StringOr("default.devices", "")
-	for _, dev := range strings.Split(devs, ",") {
-		if dev == "" {
-			continue
-		}
-		if _, err := os.Stat(dev); err == nil {
-			devSet.Add(dev)
-		}
-	}
 	// Add NVIDIA_VISIBLE_DEVICES
 	devSet, err = evalDevices(params.Config.Env, devSet)
-	// Eval devmap again
-	devMap := []container.DeviceMapping{}
+	params.HostConfig.Devices = evalDevMap(devSet)
+	return params, nil
+}
+
+func evalDevMap(devSet *set.Set) (devMap []container.DeviceMapping) {
 	for _, d := range devSet.List() {
 		dev := d.(string)
 		logrus.Infof("HOUDINI: Add device '%s'", dev)
@@ -260,7 +338,5 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		}
 		devMap = append(devMap, dm)
 	}
-	params.HostConfig.Devices = devMap
-
-	return params, nil
+	return devMap
 }
