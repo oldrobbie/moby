@@ -161,6 +161,7 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	vGpuLabel, okGpuLabel := params.Config.Labels[triggerGpuLabel]
 	triggerGpuEnv, err := c.StringOr("gpu.trigger-env", "HOUDINI_GPU_ENABLED")
 	vGpuEnv, okGpuEnv := envDic[triggerGpuEnv]
+	vNvEnv, okNvEnv := envDic["NVIDIA_VISIBLE_DEVICES"]
 	switch {
 	case forceHoudini:
 		logrus.Infof("HOUDINI: Force houdini on all containers")
@@ -168,7 +169,10 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	case okEnv && vEnv == "true":
 		logrus.Infof("HOUDINI: Trigger houdini, since %s==true", vEnv)
 	case okGpuEnv && vGpuEnv == "true":
-		logrus.Infof("HOUDINI: Trigger houdini, since GPU case is demanded %s==true", vGpuEnv)
+		logrus.Infof("HOUDINI: Trigger houdini, since %s==true", triggerGpuEnv)
+	// NVIDIA_VISIBLE_DEVICES is set
+	case okNvEnv:
+		logrus.Infof("HOUDINI: Trigger houdini, since NVIDIA_VISIBLE_DEVICES==%s", vNvEnv)
 	// Labels are set
 	case okLabel && vLabel == "true":
 		logrus.Infof("HOUDINI: Trigger houdini, as label '%s' is 'true'.", triggerLabel)
@@ -183,17 +187,40 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		return params, nil
 	}
 	/////// Containers
+	// Privileged containers
+	triggerPrivilegedEnv, err := c.StringOr("gpu.privileged-trigger-env", "HOUDINI_CONTAINER_PRIVILEGED")
+	vPrivEnv, okPrivEnv := envDic[triggerPrivilegedEnv]
+	switch {
+	case okPrivEnv && vPrivEnv == "true":
+		logrus.Infof("HOUDINI: Set privileged mode, since %s==true", triggerPrivilegedEnv)
+		params.HostConfig.Privileged = true
+	}
 	// remove the container automatically
+	//// In case it is used within docker build it needs to be disabled
+	// TODO: Heuristic is flawed, but if Logdriver is none it might be docker build
+	isBuilding := params.HostConfig.LogConfig.Type == "none"
+
 	cntRmLabel, _ := c.StringOr("container.remove-label", "houdini.container.remove")
 	v, ok := params.Config.Labels[cntRmLabel]
 	if ok {
-		logrus.Infof("HOUDINI: set '--rm' flag according to '%s=%s'", cntRmLabel, v)
-		params.HostConfig.AutoRemove = v == "true"
+		if ! isBuilding {
+			logrus.Infof("HOUDINI: set '--rm' flag according to '%s=%s'", cntRmLabel, v)
+			params.HostConfig.AutoRemove = v == "true"
+		} else {
+			logrus.Infof("HOUDINI: skip AutoRemove piece as it seems docker build is used")
+		}
+
 
 	} else if b, _ := c.BoolOr("container.remove", false);b {
-		logrus.Infof("HOUDINI: remove container when finished")
-		params.HostConfig.AutoRemove = true
+		if ! isBuilding {
+			logrus.Infof("HOUDINI: remove container when finished")
+			params.HostConfig.AutoRemove = true
+		} else {
+			logrus.Infof("HOUDINI: skip AutoRemove piece as it seems docker build is used")
+		}
 	}
+
+
 	// USER
 	user := ""
 	keepUserLabel, _ := c.StringOr("user.keep-user-label", "houdini.user.keep")

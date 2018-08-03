@@ -128,5 +128,5 @@ Either within the `houdini.ini` file or as an environment variable passed to the
 
 
 ```
-$ docker run -ti --rm --label houdini.enable=true -e NVIDIA_VISIBLE_DEVICES=all qnib/keras python mnist_cnn.py /home/docker/
+$ docker run -ti --rm -e HOUDINI_GPU_ENABLED=true -e NVIDIA_VISIBLE_DEVICES=all qnib/keras python mnist_cnn.py /home/docker/
 ```
