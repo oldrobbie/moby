@@ -162,6 +162,8 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	triggerGpuEnv, err := c.StringOr("gpu.trigger-env", "HOUDINI_GPU_ENABLED")
 	vGpuEnv, okGpuEnv := envDic[triggerGpuEnv]
 	vNvEnv, okNvEnv := envDic["NVIDIA_VISIBLE_DEVICES"]
+	triggerPrivilegedEnv, err := c.StringOr("container.privileged-trigger-env", "HOUDINI_CONTAINER_PRIVILEGED")
+	vPrivEnv, okPrivEnv := envDic[triggerPrivilegedEnv]
 	switch {
 	case forceHoudini:
 		logrus.Infof("HOUDINI: Force houdini on all containers")
@@ -178,6 +180,8 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 		logrus.Infof("HOUDINI: Trigger houdini, as label '%s' is 'true'.", triggerLabel)
 	case okGpuLabel && vGpuLabel == "true":
 		logrus.Infof("HOUDINI: Trigger houdini, as label '%s' is 'true'.", triggerGpuLabel)
+	case okPrivEnv && vPrivEnv == "true":
+		logrus.Infof("HOUDINI: Trigger houdini, as env %s==true", triggerPrivilegedEnv)
 	default:
 		logrus.Infof("HOUDINI: Skip Houdini, since labels and env do not trigger the patch.")
 		if debugHoudini {
@@ -188,8 +192,6 @@ func HoudiniChanges(c *config.Config, params types.ContainerCreateConfig) (types
 	}
 	/////// Containers
 	// Privileged containers
-	triggerPrivilegedEnv, err := c.StringOr("gpu.privileged-trigger-env", "HOUDINI_CONTAINER_PRIVILEGED")
-	vPrivEnv, okPrivEnv := envDic[triggerPrivilegedEnv]
 	switch {
 	case okPrivEnv && vPrivEnv == "true":
 		logrus.Infof("HOUDINI: Set privileged mode, since %s==true", triggerPrivilegedEnv)

@@ -21,10 +21,10 @@
 			"revisionTime": "2018-04-13T04:54:52Z"
 		},
 		{
-			"checksumSHA1": "PRI/1+uLAGe9J/Tq4tOlxjh/jeM=",
+			"checksumSHA1": "DFTXfSyGyMU6ylqUWquUSek53SQ=",
 			"path": "github.com/qnib/moby/pkg/houdini",
-			"revision": "ff01f1b8a82f1d1d141419b1a2d0ed448440b98b",
-			"revisionTime": "2018-07-13T14:27:07Z"
+			"revision": "9b1807b9b0fe460ac025955a204432209816ef52",
+			"revisionTime": "2018-08-08T14:37:54Z"
 		},
 		{
 			"checksumSHA1": "sbxmQDSULBsu/48D+BHznW8YRmg=",
