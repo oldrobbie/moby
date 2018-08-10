@@ -19,7 +19,6 @@ import (
 	"github.com/opencontainers/selinux/go-selinux/label"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/qnib/moby/pkg/houdini"
 
 )
 
@@ -39,7 +38,7 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 		return containertypes.ContainerCreateCreatedBody{}, errdefs.InvalidParameter(errors.New("Config cannot be empty in order to create a container"))
 	}
 
-	params, _ = houdini.HoudiniChanges(daemon.houdiniCfg, params)
+	params, _ = daemon.houdini.HoudiniChanges(params)
 
 	os := runtime.GOOS
 	if params.Config.Image != "" {

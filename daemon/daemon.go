@@ -57,8 +57,7 @@ import (
 	"github.com/docker/libnetwork/cluster"
 	nwconfig "github.com/docker/libnetwork/config"
 	"github.com/pkg/errors"
-	hconfig "github.com/zpatrick/go-config"
-
+	"github.com/qnib/moby/pkg/houdini"
 )
 
 // ContainersNamespace is the name of the namespace used for users containers
@@ -78,7 +77,7 @@ type Daemon struct {
 	imageService      *images.ImageService
 	idIndex           *truncindex.TruncIndex
 	configStore       *config.Config
-	houdiniCfg		  *hconfig.Config
+	houdini		  	  *houdini.Houdini
 	statsCollector    *stats.Collector
 	defaultLogConfig  containertypes.LogConfig
 	RegistryService   registry.Service
@@ -923,14 +922,11 @@ func NewDaemon(config *config.Config, registryService registry.Service, containe
 	}).Info("Docker daemon")
 
 	// houdiniConfig
-	houdiniCfg := config.HoudiniCfg
-	_, err =  os.Open(houdiniCfg)
-	if err == nil {
-		logrus.Infof("Loading Houdini config '%s'", houdiniCfg)
-		iniFile := hconfig.NewINIFile(houdiniCfg)
-		d.houdiniCfg = hconfig.NewConfig([]hconfig.Provider{iniFile})
+	houdini, err := houdini.NewHoudini(config.HoudiniCfg)
+	if err != nil {
+		logrus.Info(err.Error())
 	} else {
-		logrus.Infof("Could not load Houdini config '%s'", houdiniCfg)
+		d.houdini = houdini
 	}
 	return d, nil
 }
