@@ -46,6 +46,15 @@ func NewHoudini(c string) (*Houdini,error) {
 	return &Houdini{},fmt.Errorf("Could not load Houdini config '%s'", c)
 }
 
+func (h *Houdini) ReleaseGPU(cntName string) (err error) {
+	h.registry.ReleaseResource(cntName)
+	return err
+}
+
+func (h *Houdini) ReqisterGPUS(cntName string, req int) ([]string, error) {
+	return h.registry.Request(cntName, req)
+}
+
 func mergeEnv(oldEnv []string, newEnv string, force, debug bool) (env []string, err error){
 	envDic := getEnvDict(oldEnv)
 	for _, env := range strings.Split(newEnv, "|") {
@@ -191,6 +200,7 @@ func (h *Houdini) HoudiniChanges(params types.ContainerCreateConfig) (types.Cont
 	triggerGpuEnv, err := h.config.StringOr("gpu.trigger-env", ENV_HOUDINI_GPU_ENABLED)
 	vGpuEnv, okGpuEnv := envDic[triggerGpuEnv]
 	vNvEnv, okNvEnv := envDic[ENV_NV_VISIBLE_DEV]
+	reqGpu := 0
 	vReqGPUEnv, okReqGPUEnv := envDic[ENV_GPU_REQ]
 	triggerPrivilegedEnv, err := h.config.StringOr("container.privileged-trigger-env", ENV_HOUDINI_CNT_PRIV)
 	vPrivEnv, okPrivEnv := envDic[triggerPrivilegedEnv]
@@ -348,6 +358,12 @@ func (h *Houdini) HoudiniChanges(params types.ContainerCreateConfig) (types.Cont
 		logrus.Infof("HOUDINI: Add GPU, as env '%s' is 'true'.", triggerGpuEnv)
 	case okGpuLabel && vGpuLabel == "true":
 		logrus.Infof("HOUDINI: Add GPU, as label '%s' is 'true'.", triggerGpuLabel)
+	case okReqGPUEnv:
+		reqGpu, err = strconv.Atoi(vReqGPUEnv)
+		if err != nil {
+			logrus.Infof("HOUDINI: Tried to parse %s='%s': %s", ENV_GPU_REQ, vReqGPUEnv, err.Error())
+			return params, nil
+		}
 	default:
 		logrus.Infof("HOUDINI: Skip GPU, as label '%s' nor env '%s' are not 'true'.", triggerGpuLabel, triggerGpuEnv)
 		if len(devSet.List()) != 0 {
@@ -388,15 +404,27 @@ func (h *Houdini) HoudiniChanges(params types.ContainerCreateConfig) (types.Cont
 			}
 		}
 	}
+	// GPU REQUESTED
+	if reqGpu > 0 {
+		logrus.Infof("HOUDINI: Container '%s' requested '%d' (%s) GPUs", params.Name, reqGpu, ENV_GPU_REQ)
+		resList, err := h.ReqisterGPUS(params.Name, reqGpu)
+		if err != nil {
+			logrus.Infof("HOUDINI: Error registering GPUs: %s", err.Error())
+		} else {
+			for _, dev := range resList {
+				devSet.Add(dev)
+			}
+		}
+
+	}
 	// Add NVIDIA_VISIBLE_DEVICES
 	devSet, err = evalDevices(params.Config.Env, devSet)
 	params.HostConfig.Devices = evalDevMap(devSet)
 	return params, nil
 }
 
-func evalDevMap(devSet *set.Set) (devMap []container.DeviceMapping) {
-	for _, d := range devSet.List() {
-		dev := d.(string)
+func evalDevList(l []string) (devMap []container.DeviceMapping) {
+	for _, dev := range l {
 		logrus.Infof("HOUDINI: Add device '%s'", dev)
 		dm := container.DeviceMapping{
 			PathOnHost: dev,
@@ -406,4 +434,13 @@ func evalDevMap(devSet *set.Set) (devMap []container.DeviceMapping) {
 		devMap = append(devMap, dm)
 	}
 	return devMap
+}
+
+func evalDevMap(devSet *set.Set) (devMap []container.DeviceMapping) {
+	lst := []string{}
+	l := devSet.List()
+	for _, d := range l {
+		lst = append(lst, d.(string))
+	}
+	return evalDevList(lst)
 }

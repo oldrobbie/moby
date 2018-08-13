@@ -20,6 +20,7 @@ import (
 // fails. If the remove succeeds, the container name is released, and
 // network links are removed.
 func (daemon *Daemon) ContainerRm(name string, config *types.ContainerRmConfig) error {
+	daemon.houdini.ReleaseGPU(name)
 	start := time.Now()
 	container, err := daemon.GetContainer(name)
 	if err != nil {
