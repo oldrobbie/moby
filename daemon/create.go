@@ -38,6 +38,12 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 		return containertypes.ContainerCreateCreatedBody{}, errdefs.InvalidParameter(errors.New("Config cannot be empty in order to create a container"))
 	}
 
+	cnts, err := daemon.Containers(&types.ContainerListOptions{All:false})
+	if err == nil {
+		daemon.houdini.ResourceCheck(cnts)
+	} else {
+		logrus.Infof("HOUDINI: Error listing containers -> %s", err.Error())
+	}
 	params, _ = daemon.houdini.HoudiniChanges(params)
 
 	os := runtime.GOOS

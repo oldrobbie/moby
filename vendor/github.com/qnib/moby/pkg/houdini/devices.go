@@ -8,9 +8,11 @@ import (
 	"os"
 	"regexp"
 	"time"
-		"strings"
+	"strings"
 	"github.com/sirupsen/logrus"
 	"path"
+	"github.com/docker/docker/container"
+
 )
 
 var (
@@ -18,7 +20,7 @@ var (
 )
 
 type Resources struct {
-	resource string
+	resource 	string
 	reserved 	bool
 	start 		time.Time
 	lastRelease time.Time
@@ -26,7 +28,7 @@ type Resources struct {
 }
 
 func NewResources(res string) Resources {
-	fmt.Printf("HOUDINI: New reservation created '%s'\n", res)
+	logrus.Infof("HOUDINI: New reservation created '%s'\n", res)
 	return Resources{reserved: false, resource: res}
 }
 
@@ -34,11 +36,15 @@ func (r *Resources) IsReserved() bool {
 	return r.reserved
 }
 
+func (r *Resources) String() string {
+	return fmt.Sprintf("%-20s | CntName:%s > started:%s", r.resource, r.cntName, r.start.String())
+}
+
 func (r *Resources) DoReserved(cntName string) (err error) {
 	if r.IsReserved() {
 		return fmt.Errorf("HOUDINI: %s already booked by '%s'", r.resource, r.cntName)
 	}
-	fmt.Printf("HOUDINI: Reserved %s for %s\n", r.resource, cntName)
+	logrus.Infof("HOUDINI: Reserved %s for %s\n", r.resource, cntName)
 	r.reserved = true
 	r.cntName = cntName
 	r.start = time.Now()
@@ -47,6 +53,7 @@ func (r *Resources) DoReserved(cntName string) (err error) {
 
 func (r *Resources) Release() (err error) {
 	r.reserved = false
+	r.lastRelease = time.Now()
 	return
 }
 
@@ -83,10 +90,46 @@ func GetDevRegistry() DevRegistry {
 
 	return dr
 }
+func (dr *DevRegistry) CleanResourceByCntName(name string) {
+	name = strings.TrimPrefix(name, "/")
+	logrus.Infof("HOUDINI: Start  CleanResourceByCntName(%s)", name)
+	for k, v := range dr.reservation {
+		if name == v.cntName {
+			v.Release()
+			logrus.Infof("HOUDINI: Released %s reserved for container %s\n", k, name)
+			dr.reservation[k] = v
+		}
+	}
+}
+
+func (dr *DevRegistry) GetReservedResources() (res []Resources) {
+	for _, r := range dr.reservation {
+		if r.reserved {
+			res = append(res, r)
+		}
+	}
+	return
+}
+
+func (dr *DevRegistry) ReleaseResourceByCnt(cnt *container.Container) {
+	logrus.Infof("HOUDINI: Start  ReleaseResource(%s)", cnt.Name)
+	for k, v := range dr.reservation {
+		for _, dev := range cnt.HostConfig.Devices {
+			if dev.PathOnHost == v.resource {
+				logrus.Infof("HOUDINI: Released %s reserved for container %s\n", k, cnt.Name)
+				v.Release()
+				dr.reservation[k] = v
+			}
+		}
+
+	}
+}
+
+
 func (dr *DevRegistry) ReleaseResource(key string) {
 	logrus.Infof("HOUDINI: Start  ReleaseResource(%s)", key)
 	for k, v := range dr.reservation {
-		if key == v.cntName {
+		if key == k {
 			v.Release()
 			logrus.Infof("HOUDINI: Released %s reserved for container %s\n", k, key)
 			dr.reservation[k] = v
@@ -103,12 +146,16 @@ func (dr *DevRegistry) Deregister(resList []string) {
 func (dr *DevRegistry) Request(cntName string, count int) (resList []string, err error) {
 	dr.lock.Lock()
 	defer dr.lock.Unlock()
-	logrus.Infof("StartGPU Request for '%s' w/ count=%d",cntName, count)
+	logrus.Infof("HOUDINI: StartGPU Request for '%s' w/ count=%d",cntName, count)
+	for _, v := range dr.reservation {
+		logrus.Infof("HOUDINI: Current reservations: %s", v.String())
+	}
 	for k, v := range dr.reservation {
 		if v.IsReserved() {
 			continue
 		}
 		err = v.DoReserved(cntName)
+		dr.reservation[k] = v
 		if err != nil {
 			dr.Deregister(resList)
 			return []string{}, fmt.Errorf("Error occured while registering GPU: %s", err.Error())

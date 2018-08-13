@@ -3,8 +3,9 @@ package houdini // import "github.com/docker/docker/pkg/houdini"
 import (
 	"strings"
 	"github.com/docker/docker/api/types"
-		"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/docker/docker/api/types/container"
+	container2 "github.com/docker/docker/container"
 	"os"
 	"os/user"
 	"gopkg.in/fatih/set.v0"
@@ -15,6 +16,7 @@ import (
 	"strconv"
 	hconfig "github.com/zpatrick/go-config"
 
+	"sync"
 )
 
 const (
@@ -28,6 +30,7 @@ const (
 
 
 type Houdini struct {
+	mu  	sync.Mutex
 	config *hconfig.Config
 	registry DevRegistry
 }
@@ -46,9 +49,37 @@ func NewHoudini(c string) (*Houdini,error) {
 	return &Houdini{},fmt.Errorf("Could not load Houdini config '%s'", c)
 }
 
-func (h *Houdini) ReleaseGPU(cntName string) (err error) {
-	h.registry.ReleaseResource(cntName)
-	return err
+
+func (h *Houdini) ResourceCheck(cnts []*types.Container) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	logrus.Infof("HOUDINI: Start ResourceCheck(%d)", len(cnts))
+	reservedCnts := map[string]bool{}
+	for _, c := range h.registry.reservation {
+		logrus.Infof("HOUDINI: Found reservation for '%s'", c.cntName)
+		reservedCnts[c.cntName] = true
+	}
+	for _, cnt := range cnts {
+		name := strings.TrimPrefix(cnt.Names[0], "/")
+		logrus.Infof("HOUDINI: Check container %s | %s", name, cnt.ID)
+		if _, nameMatch := reservedCnts[name];nameMatch {
+			reservedCnts[name] = false
+		}
+		if _, idMatch := reservedCnts[cnt.ID]; idMatch {
+			reservedCnts[cnt.ID] = false
+
+		}
+	}
+	for key, val := range reservedCnts {
+		if val {
+			h.registry.CleanResourceByCntName(key)
+		}
+	}
+}
+
+func (h *Houdini) ReleaseGPU(cnt *container2.Container) (err error) {
+	h.registry.ReleaseResourceByCnt(cnt)
+	return
 }
 
 func (h *Houdini) ReqisterGPUS(cntName string, req int) ([]string, error) {
