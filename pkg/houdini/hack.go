@@ -305,11 +305,15 @@ func (h *Houdini) HoudiniChanges(params types.ContainerCreateConfig) (types.Cont
 	// USER
 	user := ""
 	keepUserLabel, _ := h.config.StringOr("user.keep-user-label", "houdini.user.keep")
+	keepUserEnv, _ := h.config.StringOr("user.keep-user-env", "HOUDINI_USER_KEEP")
+	kUsrVal, kUsrOK := envDic[keepUserEnv]
 	v, ok = params.Config.Labels[keepUserLabel]
-	if ok && v == "true" {
+	switch {
+	case ok && v == "true":
 		logrus.Infof("HOUDINI: Keep the user as '%s==true'", keepUserLabel)
-
-	} else {
+	case kUsrOK && kUsrVal == "true":
+		logrus.Infof("HOUDINI: Keep the user as '%s==true'", keepUserEnv)
+	default:
 		uMode, _ := h.config.StringOr("user.mode", "default")
 		switch uMode {
 		case "static":
@@ -441,6 +445,7 @@ func (h *Houdini) HoudiniChanges(params types.ContainerCreateConfig) (types.Cont
 		resList, err := h.ReqisterGPUS(params.Name, reqGpu)
 		if err != nil {
 			logrus.Infof("HOUDINI: Error registering GPUs: %s", err.Error())
+			return params, err
 		} else {
 			for _, dev := range resList {
 				devSet.Add(dev)

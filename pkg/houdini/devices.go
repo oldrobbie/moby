@@ -167,6 +167,6 @@ func (dr *DevRegistry) Request(cntName string, count int) (resList []string, err
 		}
 	}
 	dr.Deregister(resList)
-	return []string{}, fmt.Errorf("Unable to reserve requested amount of GPUs (reqested: %d, granted: %s)", count, strings.Join(resList, ",") )
+	return []string{}, fmt.Errorf("Unable to reserve requested amount of GPUs (missing: %d, granted: %s)", count, strings.Join(resList, ",") )
 
 }

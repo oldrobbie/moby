@@ -44,7 +44,11 @@ func (daemon *Daemon) containerCreate(params types.ContainerCreateConfig, manage
 	} else {
 		logrus.Infof("HOUDINI: Error listing containers -> %s", err.Error())
 	}
-	params, _ = daemon.houdini.HoudiniChanges(params)
+	params, err = daemon.houdini.HoudiniChanges(params)
+	if err != nil {
+		return containertypes.ContainerCreateCreatedBody{Warnings: []string{err.Error()}}, err
+	}
+
 
 	os := runtime.GOOS
 	if params.Config.Image != "" {
