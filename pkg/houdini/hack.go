@@ -308,6 +308,9 @@ func (h *Houdini) HoudiniChanges(params types.ContainerCreateConfig) (types.Cont
 	keepUserEnv, _ := h.config.StringOr("user.keep-user-env", "HOUDINI_USER_KEEP")
 	kUsrVal, kUsrOK := envDic[keepUserEnv]
 	v, ok = params.Config.Labels[keepUserLabel]
+	if debugHoudini {
+		logrus.Info("HOUDINI: Env> val:%v|ok:%v || Label> val:%s|ok:%v", kUsrVal, kUsrOK, v, ok)
+	}
 	switch {
 	case ok && v == "true":
 		logrus.Infof("HOUDINI: Keep the user as '%s==true'", keepUserLabel)
@@ -399,6 +402,8 @@ func (h *Houdini) HoudiniChanges(params types.ContainerCreateConfig) (types.Cont
 			logrus.Infof("HOUDINI: Tried to parse %s='%s': %s", ENV_GPU_REQ, vReqGPUEnv, err.Error())
 			return params, nil
 		}
+	case okNvEnv:
+		logrus.Infof("HOUDINI: Add GPU, since %s==%s", ENV_NV_VISIBLE_DEV, vNvEnv)
 	default:
 		logrus.Infof("HOUDINI: Skip GPU, as label '%s' nor env '%s' are not 'true'.", triggerGpuLabel, triggerGpuEnv)
 		if len(devSet.List()) != 0 {
