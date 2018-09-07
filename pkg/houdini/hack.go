@@ -151,7 +151,20 @@ func getCudaSO(p string, cfiles string) []string {
 	return res
 }
 
+// evalUid() checks for UID:GID settings and splits out the UID (string or integer at this point)
+func evalUid(ustr string) (uid string) {
+	if strings.Contains(ustr, ":") {
+		ugid := strings.SplitN(ustr, ":", 2)
+		ustr = ugid[0]
+		return evalUid(ustr)
+	}
+	return ustr
+}
+
 func evalUser(ustr string) (home, uid, gid string, err error) {
+	// split UID:GID if need be
+	ustr = evalUid(ustr)
+	// from here it can only be a string or an int
 	tempUid, err := strconv.Atoi(ustr)
 	if err == nil {
 		u, err := user.LookupId(string(tempUid))
@@ -160,7 +173,9 @@ func evalUser(ustr string) (home, uid, gid string, err error) {
 		}
 		return u.HomeDir, u.Uid, u.Gid, err
 	}
+
 	// must be a username
+	logrus.Infof("Lookup user '%s'", ustr)
 	u, err := user.Lookup(ustr)
 	if err != nil {
 		return"","","", err
