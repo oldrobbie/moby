@@ -2,6 +2,8 @@ package images // import "github.com/docker/docker/daemon/images"
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
+	"github.com/containerd/containerd/platforms"
 	"io"
 	"strings"
 	"time"
@@ -27,6 +29,16 @@ func (i *ImageService) PullImage(ctx context.Context, image, tag string, platfor
 	// compatibility.
 	image = strings.TrimSuffix(image, ":")
 
+	platWasCreate := false
+	// Use i.PlatformFeatures in case platform is empty (otherwise we expect the parser to have down the right thing)
+	if platform == nil {
+		logrus.Debugf("Create platform spec with Features: %v", i.PlatformFeatures)
+		pp := platforms.DefaultSpec()
+		platform = &pp
+		platform.Features =  i.PlatformFeatures
+		platWasCreate = true
+	}
+
 	ref, err := reference.ParseNormalizedNamed(image)
 	if err != nil {
 		return errdefs.InvalidParameter(err)
@@ -47,6 +59,10 @@ func (i *ImageService) PullImage(ctx context.Context, image, tag string, platfor
 	}
 
 	err = i.pullImageWithReference(ctx, ref, platform, metaHeaders, authConfig, outStream)
+	if platWasCreate && err != nil {
+		// To be backwards compatible (
+		err = i.pullImageWithReference(ctx, ref, nil, metaHeaders, authConfig, outStream)
+	}
 	imageActions.WithValues("pull").UpdateSince(start)
 	return err
 }

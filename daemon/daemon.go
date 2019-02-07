@@ -1032,6 +1032,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		ReferenceStore:            rs,
 		RegistryService:           registryService,
 		TrustKey:                  trustKey,
+		PlatformFeatures:          config.PlatformFeatures,
 	})
 
 	go d.execCommandGC()
