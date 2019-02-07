@@ -8,8 +8,8 @@ The binaries are build using the Makefile: `make binary`
 
 ## Dockerfile
 
-The `Dockerfile` can be found in [qnib/uplain-dind](https://github.com/qnib/uplain-dind).
-**Root-less** Since vpnkit is not building ([#455](https://github.com/moby/vpnkit/issues/455)) I removed vpnkit from being installed.
+The `Dockerfile` can be found in [qnib/uplain-dind](https://github.com/qnib/uplain-dind).<br>
+**Rootless Failure:** Since vpnkit is not building ([#455](https://github.com/moby/vpnkit/issues/455)) I removed vpnkit from being installed.
 
 
 ```
