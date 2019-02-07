@@ -1,5 +1,11 @@
 # Test platform.Feature using Docker-in-Docker
 
+## Build
+
+This branch includes changes in [image-spec:b1.1.0-feature](https://github.com/qnib/image-spec/tree/b1.1.0-feature) and [containerd:b1.1.0-feature-v2](https://github.com/qnib/containerd/tree/v1.2.1-feature-v2) to allow for changes in the platform object in order to match node specific characteristics.
+
+The binaries are build using the Makefile: `make binary`
+
 ## Dockerfile
 
 The `Dockerfile` can be found in [qnib/uplain-dind](https://github.com/qnib/uplain-dind).
