@@ -34,5 +34,6 @@ func DefaultSpec() specs.Platform {
 		Architecture: runtime.GOARCH,
 		// The Variant field will be empty if arch != ARM.
 		Variant: cpuVariant,
+		Features: []string{},
 	}
 }

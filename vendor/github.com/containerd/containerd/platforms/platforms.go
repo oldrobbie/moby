@@ -107,6 +107,8 @@
 package platforms
 
 import (
+	"github.com/sirupsen/logrus"
+	"github.com/deckarep/golang-set"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -146,9 +148,21 @@ type matcher struct {
 
 func (m *matcher) Match(platform specs.Platform) bool {
 	normalized := Normalize(platform)
-	return m.OS == normalized.OS &&
+	logrus.Debugf("m.Features: %v | %v platform.Features", m.Features, platform.Features)
+	platFeatSet := mapset.NewSet()
+	matcherFeatSet := mapset.NewSet()
+	for _, pFeat := range platform.Features {
+		platFeatSet.Add(pFeat)
+	}
+	for _, mFeat := range m.Features {
+		matcherFeatSet.Add(mFeat)
+	}
+
+	featMatch := m.OS == normalized.OS &&
 		m.Architecture == normalized.Architecture &&
-		m.Variant == normalized.Variant
+		m.Variant == normalized.Variant &&
+		platFeatSet.Equal(matcherFeatSet)
+	return featMatch
 }
 
 func (m *matcher) String() string {
@@ -157,7 +171,7 @@ func (m *matcher) String() string {
 
 // Parse parses the platform specifier syntax into a platform declaration.
 //
-// Platform specifiers are in the format `<os>|<arch>|<os>/<arch>[/<variant>]`.
+// Platform specifiers are in the format `(<os>|<arch>|<os>/<arch>[/<variant>]):feature[:feature]`.
 // The minimum required information for a platform specifier is the operating
 // system or architecture. If there is only a single string (no slashes), the
 // value will be matched against the known set of operating systems, then fall
@@ -168,16 +182,39 @@ func Parse(specifier string) (specs.Platform, error) {
 		// TODO(stevvooe): need to work out exact wildcard handling
 		return specs.Platform{}, errors.Wrapf(errdefs.ErrInvalidArgument, "%q: wildcards not yet supported", specifier)
 	}
-
+	logrus.Debugf("Sepcifier: %s", specifier)
 	parts := strings.Split(specifier, "/")
+	newParts := make([]string, len(parts))
+	for i, part := range parts {
+		logrus.Debugf("Part #%d: %s", i, part)
+		switch {
+		case (i != len(parts)-1) && !specifierRe.MatchString(part):
+			return specs.Platform{}, errors.Wrapf(errdefs.ErrInvalidArgument, "%q (component %i/%i) is an invalid component of %q: platform specifier component must match %q", i, len(parts)-1, part, specifier, specifierRe.String())
+		case (i == len(parts)-1) && strings.Contains(part, ":"):
+			sparts := strings.Split(part, ":")
+			for y, spart := range sparts {
+				logrus.Debugf("Subpart #%d: %s", y, spart)
+				if !specifierRe.MatchString(spart) {
+					return specs.Platform{}, errors.Wrapf(errdefs.ErrInvalidArgument, "%q (component %i/%i) is an invalid component of %q: platform specifier component must match %q", i, len(parts)-1, sparts, specifier, specifierRe.String())
+				}
+				if y == 0 {
+					newParts[i] = spart
+				}
+			}
+		default:
+			newParts[i] = part
+		}
 
-	for _, part := range parts {
-		if !specifierRe.MatchString(part) {
-			return specs.Platform{}, errors.Wrapf(errdefs.ErrInvalidArgument, "%q is an invalid component of %q: platform specifier component must match %q", part, specifier, specifierRe.String())
+	}
+	parts = newParts
+	var p specs.Platform
+	// Do we have a features?
+	if strings.Contains(specifier, ":") {
+		for i, feat := range strings.Split(specifier, ":") {
+			if i == 0 { continue }
+			p.Features = append(p.Features, feat)
 		}
 	}
-
-	var p specs.Platform
 	switch len(parts) {
 	case 1:
 		// in this case, we will test that the value might be an OS, then look
@@ -215,7 +252,7 @@ func Parse(specifier string) (specs.Platform, error) {
 		if p.Architecture == "arm" && p.Variant == "v7" {
 			p.Variant = ""
 		}
-
+		logrus.Debugf("case 2: %v", p)
 		return p, nil
 	case 3:
 		// we have a fully specified variant, this is rare
@@ -224,7 +261,7 @@ func Parse(specifier string) (specs.Platform, error) {
 		if p.Architecture == "arm64" && p.Variant == "" {
 			p.Variant = "v8"
 		}
-
+		logrus.Debugf("case 3: %v", p)
 		return p, nil
 	}
 
