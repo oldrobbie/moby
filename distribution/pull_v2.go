@@ -972,5 +972,6 @@ func toOCIPlatform(p manifestlist.PlatformSpec) specs.Platform {
 		Variant:      p.Variant,
 		OSFeatures:   p.OSFeatures,
 		OSVersion:    p.OSVersion,
+		Features:     p.Features,
 	}
 }

@@ -41,12 +41,14 @@ type ImageServiceConfig struct {
 	ReferenceStore            dockerreference.Store
 	RegistryService           registry.Service
 	TrustKey                  libtrust.PrivateKey
+	PlatformFeatures          []string
 }
 
 // NewImageService returns a new ImageService from a configuration
 func NewImageService(config ImageServiceConfig) *ImageService {
 	logrus.Debugf("Max Concurrent Downloads: %d", config.MaxConcurrentDownloads)
 	logrus.Debugf("Max Concurrent Uploads: %d", config.MaxConcurrentUploads)
+	logrus.Debugf("platform.features to pick images from ManifestLists: %s", config.PlatformFeatures)
 	return &ImageService{
 		containers:                config.ContainerStore,
 		distributionMetadataStore: config.DistributionMetadataStore,
@@ -58,6 +60,7 @@ func NewImageService(config ImageServiceConfig) *ImageService {
 		registryService:           config.RegistryService,
 		trustKey:                  config.TrustKey,
 		uploadManager:             xfer.NewLayerUploadManager(config.MaxConcurrentUploads),
+		PlatformFeatures:          config.PlatformFeatures,
 	}
 }
 
@@ -74,6 +77,8 @@ type ImageService struct {
 	registryService           registry.Service
 	trustKey                  libtrust.PrivateKey
 	uploadManager             *xfer.LayerUploadManager
+	PlatformFeatures		  []string
+
 }
 
 // DistributionServices provides daemon image storage services

@@ -92,6 +92,9 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) error {
 
 	conf.MaxConcurrentDownloads = &maxConcurrentDownloads
 	conf.MaxConcurrentUploads = &maxConcurrentUploads
+	// --platform-feature will add to the matching process when choosing image from ManifestList
+	flags.Var(opts.NewListOptsRef(&conf.PlatformFeatures, nil), "platform-feature", "Predefine platform feature to look for in ManifestLists")
+
 	return nil
 }
 
