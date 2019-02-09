@@ -83,6 +83,8 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) error {
 
 	flags.IntVar(&conf.NetworkControlPlaneMTU, "network-control-plane-mtu", config.DefaultNetworkMtu, "Network Control plane MTU")
 
+	flags.Var(opts.NewListOptsRef(&conf.PlatformFeatures, nil), "platform-feature", "Set platform features used when matching a manifest in the image manifest list")
+
 	// "--deprecated-key-path" is to allow configuration of the key used
 	// for the daemon ID and the deprecated image signing. It was never
 	// exposed as a command line option but is added here to allow
@@ -92,8 +94,6 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) error {
 
 	conf.MaxConcurrentDownloads = &maxConcurrentDownloads
 	conf.MaxConcurrentUploads = &maxConcurrentUploads
-	// --platform-feature will add to the matching process when choosing image from ManifestList
-	flags.Var(opts.NewListOptsRef(&conf.PlatformFeatures, nil), "platform-feature", "Predefine platform feature to look for in ManifestLists")
 
 	return nil
 }

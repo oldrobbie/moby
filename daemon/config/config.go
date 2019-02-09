@@ -229,7 +229,8 @@ type CommonConfig struct {
 	Features map[string]bool `json:"features,omitempty"`
 
 	Builder BuilderConfig `json:"builder,omitempty"`
-	// PlatformFeatures will add to the matching process when choosing image from ManifestList
+
+	// PlatformFeatures contains list of platform features used when matching a manifest in the image manifest list
 	PlatformFeatures []string `json:"platform-features,omitempty"`
 }
 
