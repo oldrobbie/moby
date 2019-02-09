@@ -60,7 +60,7 @@ func NewImageService(config ImageServiceConfig) *ImageService {
 		registryService:           config.RegistryService,
 		trustKey:                  config.TrustKey,
 		uploadManager:             xfer.NewLayerUploadManager(config.MaxConcurrentUploads),
-		PlatformFeatures:          config.PlatformFeatures,
+		platformFeatures:          config.PlatformFeatures,
 	}
 }
 
@@ -77,8 +77,7 @@ type ImageService struct {
 	registryService           registry.Service
 	trustKey                  libtrust.PrivateKey
 	uploadManager             *xfer.LayerUploadManager
-	PlatformFeatures		  []string
-
+	platformFeatures          []string
 }
 
 // DistributionServices provides daemon image storage services

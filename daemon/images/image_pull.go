@@ -2,11 +2,11 @@ package images // import "github.com/docker/docker/daemon/images"
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
-	"github.com/containerd/containerd/platforms"
 	"io"
 	"strings"
 	"time"
+
+	"github.com/containerd/containerd/platforms"
 
 	dist "github.com/docker/distribution"
 	"github.com/docker/distribution/reference"
@@ -29,16 +29,6 @@ func (i *ImageService) PullImage(ctx context.Context, image, tag string, platfor
 	// compatibility.
 	image = strings.TrimSuffix(image, ":")
 
-	platWasCreate := false
-	// Use i.PlatformFeatures in case platform is empty (otherwise we expect the parser to have down the right thing)
-	if platform == nil {
-		logrus.Debugf("Create platform spec with Features: %v", i.PlatformFeatures)
-		pp := platforms.DefaultSpec()
-		platform = &pp
-		platform.Features =  i.PlatformFeatures
-		platWasCreate = true
-	}
-
 	ref, err := reference.ParseNormalizedNamed(image)
 	if err != nil {
 		return errdefs.InvalidParameter(err)
@@ -59,15 +49,19 @@ func (i *ImageService) PullImage(ctx context.Context, image, tag string, platfor
 	}
 
 	err = i.pullImageWithReference(ctx, ref, platform, metaHeaders, authConfig, outStream)
-	if platWasCreate && err != nil {
-		// To be backwards compatible (
-		err = i.pullImageWithReference(ctx, ref, nil, metaHeaders, authConfig, outStream)
-	}
 	imageActions.WithValues("pull").UpdateSince(start)
 	return err
 }
 
 func (i *ImageService) pullImageWithReference(ctx context.Context, ref reference.Named, platform *specs.Platform, metaHeaders map[string][]string, authConfig *types.AuthConfig, outStream io.Writer) error {
+
+	// in case no platform is provided, use default platform add platform features from config
+	if platform == nil && i.platformFeatures != nil {
+		p := platforms.DefaultSpec()
+		p.Features = append(p.Features, i.platformFeatures...)
+		platform = &p
+	}
+
 	// Include a buffer so that slow client connections don't affect
 	// transfer performance.
 	progressChan := make(chan progress.Progress, 100)
