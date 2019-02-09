@@ -53,6 +53,7 @@
 //	   Architecture string
 //	   OS           string
 //	   Variant      string
+//	   Features     []string
 //   }
 //
 // Most images and runtimes should at least set Architecture and OS, according
