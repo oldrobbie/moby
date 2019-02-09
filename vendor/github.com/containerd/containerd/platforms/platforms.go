@@ -66,7 +66,7 @@
 // specify structured information, user input typically doesn't need the full
 // context and much can be inferred. To solve this problem, we introduced
 // "specifiers". A specifier has the format
-// `<os>|<arch>|<os>/<arch>[/<variant>]`.  The user can provide either the
+// `<os>|<arch>|<os>/<arch>[/<variant>][:feature]*`.  The user can provide either the
 // operating system or the architecture or both.
 //
 // An example of a common specifier is `linux/amd64`. If the host has a default
@@ -128,7 +128,7 @@ type Matcher interface {
 
 // NewMatcher returns a simple matcher based on the provided platform
 // specification. The returned matcher only looks for equality based on os,
-// architecture and variant.
+// architecture, variant and features.
 //
 // One may implement their own matcher if this doesn't provide the the required
 // functionality.
@@ -146,9 +146,25 @@ type matcher struct {
 
 func (m *matcher) Match(platform specs.Platform) bool {
 	normalized := Normalize(platform)
-	return m.OS == normalized.OS &&
+	platformFeatures := make(map[string]struct{})
+	for _, name := range platform.Features {
+		platformFeatures[name] = struct{}{}
+	}
+	features := make(map[string]struct{})
+	unmatchingFeatureFound := false
+	for _, name := range m.Features {
+		features[name] = struct{}{}
+		if _, ok := platformFeatures[name]; !ok {
+			unmatchingFeatureFound = true
+		}
+	}
+	featuresMatch := !unmatchingFeatureFound &&
+		len(features) == len(platformFeatures)
+	match := m.OS == normalized.OS &&
 		m.Architecture == normalized.Architecture &&
-		m.Variant == normalized.Variant
+		m.Variant == normalized.Variant &&
+		featuresMatch
+	return match
 }
 
 func (m *matcher) String() string {
@@ -157,7 +173,7 @@ func (m *matcher) String() string {
 
 // Parse parses the platform specifier syntax into a platform declaration.
 //
-// Platform specifiers are in the format `<os>|<arch>|<os>/<arch>[/<variant>]`.
+// Platform specifiers are in the format `<os>|<arch>|<os>/<arch>[/<variant>][:feature]*`.
 // The minimum required information for a platform specifier is the operating
 // system or architecture. If there is only a single string (no slashes), the
 // value will be matched against the known set of operating systems, then fall
@@ -171,13 +187,33 @@ func Parse(specifier string) (specs.Platform, error) {
 
 	parts := strings.Split(specifier, "/")
 
-	for _, part := range parts {
+	featuresSuffix := ""
+	for i, part := range parts {
+		if i == len(parts)-1 {
+			colonIndex := strings.Index(part, ":")
+			if colonIndex >= 0 {
+				featuresSuffix = part[colonIndex+1:]
+				part = part[:colonIndex]
+				parts[i] = part
+			}
+		}
 		if !specifierRe.MatchString(part) {
 			return specs.Platform{}, errors.Wrapf(errdefs.ErrInvalidArgument, "%q is an invalid component of %q: platform specifier component must match %q", part, specifier, specifierRe.String())
 		}
 	}
 
 	var p specs.Platform
+
+	if featuresSuffix != "" {
+		features := strings.Split(featuresSuffix, ":")
+		for _, feature := range features {
+			if feature == "" || !specifierRe.MatchString(feature) {
+				return specs.Platform{}, errors.Wrapf(errdefs.ErrInvalidArgument, "%q is an invalid component of %q: platform specifier component must match %q", feature, specifier, specifierRe.String())
+			}
+		}
+		p.Features = features
+	}
+
 	switch len(parts) {
 	case 1:
 		// in this case, we will test that the value might be an OS, then look
@@ -246,11 +282,19 @@ func Format(platform specs.Platform) string {
 	if platform.OS == "" {
 		return "unknown"
 	}
-
-	return joinNotEmpty(platform.OS, platform.Architecture, platform.Variant)
+	mainSpecifier := joinNotEmpty(platform.OS, platform.Architecture, platform.Variant)
+	if len(platform.Features) == 0 {
+		return mainSpecifier
+	}
+	featureSuffix := joinNotEmptyExt(":", platform.Features...)
+	return mainSpecifier + ":" + featureSuffix
 }
 
 func joinNotEmpty(s ...string) string {
+	return joinNotEmptyExt("/", s...)
+}
+
+func joinNotEmptyExt(sep string, s ...string) string {
 	var ss []string
 	for _, s := range s {
 		if s == "" {
@@ -260,7 +304,7 @@ func joinNotEmpty(s ...string) string {
 		ss = append(ss, s)
 	}
 
-	return strings.Join(ss, "/")
+	return strings.Join(ss, sep)
 }
 
 // Normalize validates and translate the platform to the canonical value.
